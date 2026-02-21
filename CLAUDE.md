@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Hackathon project (greenfield). No framework, build system, or dependencies have been chosen yet. Check the current state of the repo before making assumptions about the stack.
+Hackathon project — Rhizome, a semantic fragment graph tool. Stack is established: React 18 + TypeScript + Vite frontend, Express backend, Anthropic SDK for Claude calls. See Tech Stack section below for details.
 
 ## Ralph Loop
 
@@ -109,6 +109,7 @@ src/
       CreateFragmentModal.tsx # Add new fragments
     Graph/
       Graph3D.tsx            # 3D force-directed graph scene
+      SidePanel.tsx          # Professor Alan's reading (left panel)
       Tooltip.tsx            # Hover tooltip for connections
       Legend.tsx             # Connection type color legend
     Transition/
@@ -117,19 +118,21 @@ src/
       TitleBar.tsx           # Branding + navigation
       LoadingState.tsx       # Analysis loading animation
   types/
-    index.ts                 # Fragment, Connection, Ghost, GraphData types
+    index.ts                 # Fragment, Connection, Ghost, GraphData, SecondaryAnalysis types
   data/
     demo-fragments.ts        # Sandwich-themed seed content
   api/
-    claude.ts                # Client-side: POST /api/analyze
+    claude.ts                # Client-side: POST /api/analyze + /api/analyze/secondary
   main.tsx
   index.css
 server/
   index.ts                   # Express server entry
   routes/
-    analyze.ts               # POST /api/analyze handler
+    analyze.ts               # POST /api/analyze handler (primary — semantic cartographer)
+    analyze-secondary.ts     # POST /api/analyze/secondary handler (Professor Alan)
   prompts/
-    semantic-analysis.ts     # Claude prompt template
+    semantic-analysis.ts     # Primary Claude prompt template
+    professor-alan.ts        # Secondary Claude prompt — Professor Alan persona
 ```
 
 ### Connection Taxonomy
@@ -145,46 +148,51 @@ Claude analyzes fragments through 6 connection types:
 | **Bridge** | Gold (#EAB308) | Fragments connecting otherwise disconnected clusters |
 | **Ghost** | Gray (#6B7280) | Implied concepts that fragments gesture toward but never state |
 
-### Claude Prompt Strategy
+### Two-Agent Architecture
 
-The system prompt frames Claude as a "semantic cartographer" — not summarizing or evaluating
-the fragments, but mapping the invisible topology between them.
+**Agent 1 — Semantic Cartographer** (primary, `POST /api/analyze`)
+- Frames Claude as a "semantic cartographer" mapping invisible topology between fragments
+- Produces: connections, ghosts, summaries, themes
+- Runs on all canvas-selected fragments at analyze time
 
-**Epistemology:**
-- Treat every fragment as equally weighted — no fragment is "more important"
-- Connections are discovered, not imposed — find what's already latent
-- Ghost nodes are first-class: the absence is as meaningful as the presence
-- Strength is confidence in the connection, not importance
+**Agent 2 — Professor Alan** (secondary, `POST /api/analyze/secondary`)
+- Warm Oxford humanities scholar persona; post-processes Agent 1's output
+- Produces: thematic clusters, narrative threads, synthesis
+- Runs on-demand when user clicks a node in the 3D graph (single-selection)
+- Re-fires on every node selection change; non-fatal on failure
+- Cluster palette: `#C8A2C8` (lilac), `#87CEEB` (sky), `#F0C05A` (goldenrod), `#98D8C8` (seafoam)
 
-**Constraints:**
-- Return ONLY the JSON schema below — no preamble, no explanation outside the schema
-- Every connection must have a non-trivial description (>10 words)
-- Ghost nodes must connect to at least 2 existing fragments
-- Strength values are 0.0–1.0 (0.3 = tenuous, 0.7 = strong, 1.0 = undeniable)
-- Maximum connections: 3× the number of input fragments
-- Maximum ghost nodes: floor(fragment_count / 2)
+### Graph View Interaction
 
-### Claude JSON Output Schema
+- **Node click:** single-selection — opens one fragment card (right panel), triggers Professor Alan for that fragment (left panel)
+- **Deselect (click same node):** both panels clear
+- **Left panel (SidePanel):** only visible when a fragment card is open on right
+- **Loading state:** quill animation + skeleton while Professor Alan is working
+- **Recenter button:** bottom-left above legend, uses `zoomToFit()` to frame all nodes
+
+### Primary Agent Constraints
+- Every connection description >10 words
+- Ghost nodes connect to 2+ fragments
+- Strength 0.0–1.0; max connections 3× fragment count; max ghosts floor(n/2)
+
+### Primary Agent JSON Schema
 
 ```json
 {
-  "connections": [
-    {
-      "type": "resonance | tension | genealogy | metaphor | bridge | ghost",
-      "source": "fragment_id",
-      "target": "fragment_id",
-      "strength": 0.0,
-      "description": "Why these fragments connect"
-    }
-  ],
-  "ghosts": [
-    {
-      "id": "ghost_1",
-      "label": "Short name for the implied concept",
-      "description": "Why this ghost exists in the semantic space",
-      "connected_to": ["fragment_id_1", "fragment_id_2"]
-    }
-  ]
+  "connections": [{ "type": "resonance|tension|genealogy|metaphor|bridge|ghost", "source": "id", "target": "id", "strength": 0.0, "description": "..." }],
+  "ghosts": [{ "id": "ghost_1", "label": "...", "description": "...", "connected_to": ["id1", "id2"] }],
+  "summaries": [{ "id": "fragment_id", "summary": "10-15 word evocative summary" }],
+  "themes": [{ "name": "2-4 words", "color": "#hex", "fragment_ids": ["id1"] }]
+}
+```
+
+### Secondary Agent JSON Schema
+
+```json
+{
+  "clusters": [{ "id": "cluster_1", "name": "...", "description": "...", "fragment_ids": ["id1"], "color": "#C8A2C8" }],
+  "threads": [{ "id": "thread_1", "name": "...", "description": "...", "sequence": ["id1", "id2"] }],
+  "synthesis": "2-3 sentence overall insight"
 }
 ```
 
@@ -201,20 +209,21 @@ Seed fragments for demo (in src/data/demo-fragments.ts):
 7. "Fermentation is the oldest conversation between humans and microbes."
 8. "A hot dog is a sandwich only if you believe identity is determined by structure rather than intent."
 
-### API Contract
+### API Contracts
 
-**POST /api/analyze**
+**POST /api/analyze** — Primary analysis (semantic cartographer)
 ```
-Request:  { fragments: Array<{ id: string, text: string }> }
-Response: { connections: Connection[], ghosts: Ghost[] }
+Request:  { fragments: Array<{ id: string, text: string }> }   // min 2
+Response: { connections[], ghosts[], summaries[], themes[] }
 ```
 
-### State Shape
-```typescript
-interface AppState {
-  fragments: Fragment[]
-  selectedIds: Set<string>
-  mode: 'canvas' | 'loading' | 'graph'
-  graphData: GraphData | null
-}
+**POST /api/analyze/secondary** — Secondary analysis (Professor Alan)
 ```
+Request:  { fragments: Array<{ id: string, text: string }>, analysis: { connections[], ghosts[] } }   // min 1
+Response: { clusters[], threads[], synthesis: string }
+```
+
+### Key State (App.tsx)
+- `fragments`, `selectedIds`, `mode`, `graphData` — primary flow
+- `secondaryAnalysis`, `secondaryLoading` — Professor Alan (reset on back-to-canvas and node deselect)
+- `handleNodeSelectionChange` — fired by Graph3D on node click, triggers secondary analysis
