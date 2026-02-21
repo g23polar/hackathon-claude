@@ -45,6 +45,8 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [openFragmentIds, setOpenFragmentIds] = useState<Set<string>>(new Set());
+  const [activeThemes, setActiveThemes] = useState<Set<string>>(new Set());
+  const [activeConnectionTypes, setActiveConnectionTypes] = useState<Set<ConnectionType>>(new Set());
 
   useEffect(() => {
     onNodeSelectionChange(Array.from(openFragmentIds));
@@ -153,6 +155,18 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
     };
   }, [graphData, fragments]);
 
+  // Build a set of fragment IDs belonging to active themes for fast lookup
+  const activeThemeFragmentIds = useMemo(() => {
+    if (activeThemes.size === 0) return null;
+    const ids = new Set<string>();
+    for (const theme of graphData.themes || []) {
+      if (activeThemes.has(theme.name)) {
+        for (const fid of theme.fragment_ids) ids.add(fid);
+      }
+    }
+    return ids;
+  }, [activeThemes, graphData.themes]);
+
   const nodeThreeObject = useCallback(
     (node: any) => {
       const graphNode = node as GraphNode;
@@ -164,7 +178,9 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
             (l.source === focusedNodeId && l.target === graphNode.id) ||
             (l.target === focusedNodeId && l.source === graphNode.id)
         );
-      const isDimmed = focusedNodeId && !isFocused && !isConnectedToFocused;
+      const isDimmedByFocus = focusedNodeId && !isFocused && !isConnectedToFocused;
+      const isDimmedByTheme = activeThemeFragmentIds && !activeThemeFragmentIds.has(graphNode.id);
+      const isDimmed = isDimmedByFocus || isDimmedByTheme;
 
       const baseSize = 4 + graphNode.connectionCount * 1.5;
       const size = graphNode.isGhost ? baseSize * 0.7 : baseSize;
@@ -223,7 +239,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
       return group;
     },
-    [focusedNodeId, links]
+    [focusedNodeId, links, activeThemeFragmentIds]
   );
 
   const linkColor = useCallback(
@@ -236,9 +252,12 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
           return 'rgba(100,100,100,0.08)';
         }
       }
+      if (activeConnectionTypes.size > 0 && !activeConnectionTypes.has(graphLink.type)) {
+        return 'rgba(100,100,100,0.08)';
+      }
       return CONNECTION_COLORS[graphLink.type] || '#6B7280';
     },
-    [focusedNodeId]
+    [focusedNodeId, activeConnectionTypes]
   );
 
   const linkWidth = useCallback((link: any) => {
@@ -282,6 +301,24 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       node.fz = node.z;
     }
   }, [nodes]);
+
+  const handleToggleConnectionType = useCallback((type: ConnectionType) => {
+    setActiveConnectionTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }, []);
+
+  const handleToggleTheme = useCallback((themeName: string) => {
+    setActiveThemes((prev) => {
+      const next = new Set(prev);
+      if (next.has(themeName)) next.delete(themeName);
+      else next.add(themeName);
+      return next;
+    });
+  }, []);
 
   const handleRecenter = useCallback(() => {
     if (!fgRef.current) return;
@@ -341,7 +378,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
 
       {hoverInfo && <Tooltip info={{ ...hoverInfo, position: mousePos }} />}
-      <Legend />
+      <Legend activeTypes={activeConnectionTypes} onToggleType={handleToggleConnectionType} />
       <button
         onClick={handleRecenter}
         style={{
@@ -405,28 +442,48 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
             Themes
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            {graphData.themes.map((theme) => (
-              <div key={theme.name} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {graphData.themes.map((theme) => {
+              const isActive = activeThemes.has(theme.name);
+              const isDimmed = activeThemes.size > 0 && !isActive;
+
+              return (
                 <div
+                  key={theme.name}
+                  onClick={() => handleToggleTheme(theme.name)}
                   style={{
-                    width: '14px',
-                    height: '14px',
-                    borderRadius: '50%',
-                    backgroundColor: theme.color,
-                    flexShrink: 0,
-                  }}
-                />
-                <span
-                  style={{
-                    fontFamily: 'monospace',
-                    fontSize: '0.75rem',
-                    color: theme.color,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    cursor: 'pointer',
+                    padding: '2px 4px',
+                    borderRadius: '4px',
+                    background: isActive ? `${theme.color}18` : 'transparent',
+                    opacity: isDimmed ? 0.35 : 1,
+                    transition: 'opacity 0.2s, background 0.2s',
                   }}
                 >
-                  {theme.name}
-                </span>
-              </div>
-            ))}
+                  <div
+                    style={{
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '50%',
+                      backgroundColor: theme.color,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontFamily: 'monospace',
+                      fontSize: '0.75rem',
+                      color: theme.color,
+                      userSelect: 'none',
+                    }}
+                  >
+                    {theme.name}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

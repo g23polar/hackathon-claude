@@ -10,13 +10,16 @@ const LEGEND_ITEMS: { type: ConnectionType; label: string }[] = [
   { type: 'ghost', label: 'Ghost' },
 ];
 
-interface LegendProps {
-  activeTypes: Set<ConnectionType>;
-  onToggleType: (type: ConnectionType) => void;
+export interface LegendProps {
+  activeTypes?: Set<ConnectionType>;
+  onToggleType?: (type: ConnectionType) => void;
 }
 
-export default function Legend({ activeTypes, onToggleType }: LegendProps) {
+const EMPTY_SET = new Set<ConnectionType>();
+
+export default function Legend({ activeTypes = EMPTY_SET, onToggleType }: LegendProps) {
   const hasFilter = activeTypes.size > 0;
+  const isInteractive = !!onToggleType;
 
   return (
     <div
@@ -51,12 +54,12 @@ export default function Legend({ activeTypes, onToggleType }: LegendProps) {
           return (
             <div
               key={item.type}
-              onClick={() => onToggleType(item.type)}
+              onClick={isInteractive ? () => onToggleType!(item.type) : undefined}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                cursor: 'pointer',
+                cursor: isInteractive ? 'pointer' : 'default',
                 padding: '2px 4px',
                 borderRadius: '4px',
                 background: isActive ? `${CONNECTION_COLORS[item.type]}18` : 'transparent',
