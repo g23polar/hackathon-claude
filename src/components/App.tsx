@@ -1,5 +1,3 @@
-import { useState, useCallback, useEffect } from 'react';
-import type { Fragment, GraphData, AppMode } from '../types';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Fragment, GraphData, AppMode, SecondaryAnalysis } from '../types';
 import { demoFragments } from '../data/demo-fragments';

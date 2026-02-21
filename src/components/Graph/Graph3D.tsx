@@ -69,11 +69,12 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
     scene.fog = new THREE.FogExp2(0x0a0a0a, 0.003);
 
-    fg.d3Force('charge')?.strength(-120);
+    fg.d3Force('charge')?.strength(-350).distanceMax(400);
+    fg.d3Force('link')?.distance(80);
 
     fg.cameraPosition({ x: 0, y: 0, z: 500 });
     setTimeout(() => {
-      fg.cameraPosition({ x: 0, y: 0, z: 250 }, { x: 0, y: 0, z: 0 }, 2000);
+      fg.cameraPosition({ x: 0, y: 0, z: 350 }, { x: 0, y: 0, z: 0 }, 2000);
     }, 100);
 
     return () => {
@@ -244,22 +245,16 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       // Toggle fragment in/out of selection (only for non-ghost nodes)
       if (!graphNode.isGhost) {
         setOpenFragmentIds((prev) => {
-          if (prev.has(graphNode.id) && prev.size === 1) {
-            return new Set();
+          const next = new Set(prev);
+          if (next.has(graphNode.id)) {
+            next.delete(graphNode.id);
+          } else {
+            next.add(graphNode.id);
           }
-          return new Set([graphNode.id]);
+          return next;
         });
       }
 
-      if (newFocused && fgRef.current && node.x !== undefined) {
-        const distance = 120;
-        const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
-        fgRef.current.cameraPosition(
-          { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
-          { x: node.x, y: node.y, z: node.z },
-          1000
-        );
-      }
     },
     [focusedNodeId]
   );
