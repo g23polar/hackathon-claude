@@ -67,7 +67,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
     pointLight2.position.set(-80, -60, 80);
     scene.add(pointLight2);
 
-    scene.fog = new THREE.FogExp2(0x0a0a0a, 0.003);
+    scene.fog = new THREE.FogExp2(0x0a0a0a, 0.0001);
 
     fg.d3Force('charge')?.strength(-350).distanceMax(400);
     fg.d3Force('link')?.distance(80);
@@ -174,8 +174,8 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
       const material = new THREE.MeshPhongMaterial({
         color: graphNode.themeColor,
-        transparent: true,
-        opacity: isDimmed ? 0.15 : graphNode.isGhost ? 0.4 : 0.85,
+        transparent: false,
+        opacity: 1.0,
         emissive: isFocused ? graphNode.themeColor : '#000000',
         emissiveIntensity: isFocused ? 0.4 : 0.1,
         wireframe: graphNode.isGhost,
@@ -187,7 +187,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       const glowMat = new THREE.MeshBasicMaterial({
         color: graphNode.themeColor,
         transparent: true,
-        opacity: isDimmed ? 0.02 : isFocused ? 0.15 : 0.06,
+        opacity: isDimmed ? 0.04 : isFocused ? 0.25 : 0.12,
       });
       group.add(new THREE.Mesh(glowGeom, glowMat));
 
@@ -195,7 +195,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       const ctx = canvas.getContext('2d')!;
       canvas.width = 1024;
       canvas.height = 64;
-      ctx.font = graphNode.isGhost ? 'italic 22px Georgia' : '24px monospace';
+      ctx.font = graphNode.isGhost ? 'italic 36px Georgia' : '38px monospace';
       ctx.fillStyle = isDimmed ? 'rgba(255,255,255,0.15)' : graphNode.isGhost ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.9)';
       ctx.textAlign = 'center';
       ctx.fillText(graphNode.label, 512, 40);
@@ -204,11 +204,13 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       const spriteMaterial = new THREE.SpriteMaterial({
         map: texture,
         transparent: true,
+        depthTest: false,
         depthWrite: false,
       });
       const sprite = new THREE.Sprite(spriteMaterial);
-      sprite.scale.set(80, 5, 1);
-      sprite.position.set(0, size + 6, 0);
+      sprite.renderOrder = 999;
+      sprite.scale.set(120, 8, 1);
+      sprite.position.set(0, size + 8, 0);
       group.add(sprite);
 
       return group;
@@ -329,50 +331,6 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
         d3VelocityDecay={0.6}
       />
 
-      {(graphData.field_reading || graphData.emergent_theme) && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '4rem',
-            left: '1.5rem',
-            maxWidth: '420px',
-            zIndex: 10,
-            background: 'linear-gradient(135deg, rgba(10,10,10,0.85), rgba(10,10,10,0.6))',
-            borderRadius: '10px',
-            padding: '1rem 1.25rem',
-            border: '1px solid rgba(255,255,255,0.06)',
-            backdropFilter: 'blur(12px)',
-          }}
-        >
-          {graphData.emergent_theme && (
-            <div
-              style={{
-                fontFamily: 'monospace',
-                fontSize: '0.7rem',
-                color: '#4ADE80',
-                letterSpacing: '0.2em',
-                textTransform: 'uppercase',
-                marginBottom: '0.4rem',
-              }}
-            >
-              {graphData.emergent_theme}
-            </div>
-          )}
-          {graphData.field_reading && (
-            <div
-              style={{
-                fontFamily: "'Georgia', serif",
-                fontSize: '0.9rem',
-                color: '#999',
-                lineHeight: 1.7,
-                fontStyle: 'italic',
-              }}
-            >
-              {graphData.field_reading}
-            </div>
-          )}
-        </div>
-      )}
 
       {hoverInfo && <Tooltip info={{ ...hoverInfo, position: mousePos }} />}
       <Legend />

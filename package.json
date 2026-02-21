@@ -26,6 +26,8 @@
     "@anthropic-ai/sdk": "^0.78.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
+    "@tsparticles/engine": "^3.9.1",
+    "@tsparticles/slim": "^3.9.1",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",

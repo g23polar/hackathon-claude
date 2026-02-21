@@ -4,6 +4,7 @@ import FragmentCard from './FragmentCard';
 import CreateFragmentModal from './CreateFragmentModal';
 import AnalyzeButton from './AnalyzeButton';
 import LibraryDrawer from './LibraryDrawer';
+import ConstellationBg from './ConstellationBg';
 
 interface CanvasProps {
   fragments: Fragment[];
@@ -125,15 +126,15 @@ export default function Canvas({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        background: `
-          #0a0a0a
-          radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0)
-        `,
-        backgroundSize: '40px 40px',
+        position: 'relative',
+        background: '#0a0a0a',
       }}
     >
+      <ConstellationBg />
       <div
         style={{
+          position: 'relative',
+          zIndex: 1,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -251,6 +252,8 @@ export default function Canvas({
       <form
         onSubmit={handleQuickAdd}
         style={{
+          position: 'relative',
+          zIndex: 1,
           display: 'flex',
           gap: '0.5rem',
           padding: '0.75rem 1.5rem',
@@ -303,6 +306,8 @@ export default function Canvas({
           flex: 1,
           overflow: 'auto',
           padding: '1.5rem',
+          position: 'relative',
+          zIndex: 1,
           border: isDragging ? '2px dashed rgba(124, 58, 237, 0.5)' : '2px dashed transparent',
           transition: 'border-color 0.2s ease',
         }}
@@ -346,6 +351,8 @@ export default function Canvas({
 
       <div
         style={{
+          position: 'relative',
+          zIndex: 1,
           padding: '0.5rem 1.5rem',
           borderTop: '1px solid rgba(255, 255, 255, 0.04)',
           display: 'flex',
