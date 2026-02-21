@@ -1,15 +1,18 @@
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import ForceGraph3D from 'react-force-graph-3d';
-import type { GraphData, Fragment, Connection, Ghost, ConnectionType, Theme } from '../../types';
+import type { GraphData, Fragment, Connection, Ghost, ConnectionType, Theme, SecondaryAnalysis } from '../../types';
 import { CONNECTION_COLORS, THEME_PALETTE } from '../../types';
 import * as THREE from 'three';
 import Tooltip from './Tooltip';
 import Legend from './Legend';
+import SidePanel from './SidePanel';
 
 interface Graph3DProps {
   graphData: GraphData;
   fragments: Fragment[];
   onBackToCanvas: () => void;
+  secondaryAnalysis: SecondaryAnalysis | null;
+  secondaryLoading: boolean;
 }
 
 interface GraphNode {
@@ -31,7 +34,7 @@ interface GraphLink {
   description: string;
 }
 
-export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3DProps) {
+export default function Graph3D({ graphData, fragments, onBackToCanvas, secondaryAnalysis, secondaryLoading }: Graph3DProps) {
   const fgRef = useRef<any>(null);
   const [hoverInfo, setHoverInfo] = useState<{
     type: 'node' | 'link';
@@ -370,6 +373,13 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       />
       {hoverInfo && <Tooltip info={{ ...hoverInfo, position: mousePos }} />}
       <Legend />
+      {openFragmentIds.size > 0 && (
+        <SidePanel
+          secondaryAnalysis={secondaryAnalysis}
+          loading={secondaryLoading}
+          fragments={fragments}
+        />
+      )}
       {/* Theme legend */}
       {graphData.themes && graphData.themes.length > 0 && (
         <div

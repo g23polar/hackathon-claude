@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { Fragment, GraphData, AppMode } from '../types';
+import type { Fragment, GraphData, AppMode, SecondaryAnalysis } from '../types';
 import { demoFragments } from '../data/demo-fragments';
-import { analyzeFragments } from '../api/claude';
+import { analyzeFragments, analyzeSecondary } from '../api/claude';
 import Canvas from './Canvas/Canvas';
 import LoadingState from './UI/LoadingState';
 import TitleBar from './UI/TitleBar';
@@ -14,6 +14,8 @@ export default function App() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(initialSelectedIds);
   const [mode, setMode] = useState<AppMode>('canvas');
   const [graphData, setGraphData] = useState<GraphData | null>(null);
+  const [secondaryAnalysis, setSecondaryAnalysis] = useState<SecondaryAnalysis | null>(null);
+  const [secondaryLoading, setSecondaryLoading] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const [opacity, setOpacity] = useState(1);
   const prevModeRef = useRef<AppMode>('canvas');
@@ -63,6 +65,8 @@ export default function App() {
   const handleBackToCanvas = useCallback(() => {
     setMode('canvas');
     setGraphData(null);
+    setSecondaryAnalysis(null);
+    setSecondaryLoading(false);
   }, []);
 
   const handleAnalyze = useCallback(async () => {
@@ -70,10 +74,28 @@ export default function App() {
     if (selected.length < 2) return;
 
     setMode('loading');
+    setSecondaryAnalysis(null);
+    setSecondaryLoading(false);
     try {
       const data = await analyzeFragments(selected);
       setGraphData(data);
       setMode('graph');
+
+      // Fire secondary analysis in background (non-blocking)
+      setSecondaryLoading(true);
+      analyzeSecondary(selected, {
+        connections: data.connections,
+        ghosts: data.ghosts,
+      })
+        .then((secondary) => {
+          setSecondaryAnalysis(secondary);
+        })
+        .catch((err) => {
+          console.error('Secondary analysis failed (non-fatal):', err);
+        })
+        .finally(() => {
+          setSecondaryLoading(false);
+        });
     } catch (err) {
       console.error('Analysis failed:', err);
       setMode('canvas');
@@ -122,6 +144,8 @@ export default function App() {
             graphData={graphData}
             fragments={fragments.filter((f) => selectedIds.has(f.id))}
             onBackToCanvas={handleBackToCanvas}
+            secondaryAnalysis={secondaryAnalysis}
+            secondaryLoading={secondaryLoading}
           />
         )}
       </div>

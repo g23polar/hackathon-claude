@@ -55,6 +55,27 @@ export const THEME_PALETTE = [
   '#F87171', // red
 ];
 
+export interface ThematicCluster {
+  id: string;
+  name: string;
+  description: string;
+  fragment_ids: string[];
+  color: string;
+}
+
+export interface NarrativeThread {
+  id: string;
+  name: string;
+  description: string;
+  sequence: string[];
+}
+
+export interface SecondaryAnalysis {
+  clusters: ThematicCluster[];
+  threads: NarrativeThread[];
+  synthesis: string;
+}
+
 export type AppMode = 'canvas' | 'loading' | 'graph';
 
 export interface AppState {
