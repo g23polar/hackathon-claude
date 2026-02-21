@@ -3,33 +3,33 @@
 ## Phase 1: Project Bootstrap
 | # | Task | Status | Agent | Notes |
 |---|------|--------|-------|-------|
-| 1 | Bootstrap the complete Vite + React + TypeScript project: create package.json, tsconfig.json, vite.config.ts, index.html, src/main.tsx; install all dependencies (react, react-dom, three, @react-three/fiber, @react-three/drei, react-force-graph-3d, express, cors, @anthropic-ai/sdk, dotenv); create directory structure (src/components/Canvas/, src/components/Graph/, src/components/UI/, src/types/, src/data/, src/api/, server/routes/, server/prompts/); create TypeScript types in src/types/index.ts (Fragment, Connection, Ghost, GraphData, ConnectionType); create App.tsx shell component with mode state (canvas|loading|graph); create Express server entry in server/index.ts with CORS and /api route prefix; add Vite proxy config for /api to Express dev server; add dev scripts to package.json for concurrent frontend+backend | pending | - | - |
+| 1 | Bootstrap the complete Vite + React + TypeScript project | completed | fullstack-developer | All deps installed, types defined, App shell created, Express server running, Vite proxy configured, build passes |
 
 ## Phase 2: 2D Canvas and Demo Data
 | # | Task | Status | Agent | Notes |
 |---|------|--------|-------|-------|
-| 1 | Build the complete React 2D canvas system in src/components/Canvas/: Canvas.tsx container with dark background and grid layout, FragmentCard.tsx with text display and selection toggle and visual highlight on select, CreateFragmentModal.tsx for adding new fragments, AnalyzeButton.tsx disabled when fewer than 2 fragments selected, multi-select state management, and wire the canvas into App.tsx for the canvas mode | pending | - | - |
-| 2 | Create sandwich-themed demo fragments as seed data in src/data/demo-fragments.ts with 8 fragments about bread architecture, PB&J, bodega chopped cheese, French vs American cheese, sandwich structure, tortilla topology, fermentation, and the hot dog debate — each with a unique id and text field | pending | - | - |
+| 1 | Build the complete React 2D canvas system | completed | frontend-developer | Canvas.tsx, FragmentCard.tsx, CreateFragmentModal.tsx, AnalyzeButton.tsx built with grid layout, multi-select, dark theme |
+| 2 | Create sandwich-themed demo fragments | completed | frontend-developer | 8 sandwich fragments in demo-fragments.ts, pre-loaded in App |
 
 ## Phase 3: Semantic Analysis Engine
 | # | Task | Status | Agent | Notes |
 |---|------|--------|-------|-------|
-| 1 | Build the complete Express server route and Claude prompt: create server/prompts/semantic-analysis.ts with the system prompt (semantic cartographer framing, connection taxonomy definitions for resonance/tension/genealogy/metaphor/bridge/ghost, JSON output schema, constraints on max connections and ghost nodes); create server/routes/analyze.ts with POST /api/analyze endpoint that validates the request, calls @anthropic-ai/sdk with the prompt template, parses the JSON response, and returns typed data | pending | - | - |
-| 2 | Build the client-side API integration and loading UI: create src/api/claude.ts module that calls POST /api/analyze with selected fragments and returns typed GraphData; create src/components/UI/LoadingState.tsx React component with animated text shown during Claude analysis; wire the AnalyzeButton to call the API and transition App mode from canvas to loading to graph | pending | - | - |
+| 1 | Build Express server route and Claude prompt | completed | backend-developer | semantic-analysis.ts prompt with cartographer framing, analyze.ts route with SDK integration, JSON parsing, validation |
+| 2 | Build client-side API integration and loading UI | completed | frontend-developer | claude.ts API module, LoadingState.tsx with animated messages, App wired with async analyze flow |
 
 ## Phase 4: 3D Force-Directed Graph
 | # | Task | Status | Agent | Notes |
 |---|------|--------|-------|-------|
-| 1 | Build the React 3D graph visualization in src/components/Graph/: Graph3D.tsx using react-force-graph-3d with force-directed layout, fragment nodes rendered as labeled spheres sized by connection count, connection edges colored by type (resonance=#3B82F6, tension=#EF4444, genealogy=#22C55E, metaphor=#A855F7, bridge=#EAB308, ghost=#6B7280 dashed), ghost nodes as translucent smaller spheres, orbit controls for navigation, and wire into App.tsx for graph mode | pending | - | - |
-| 2 | Build the React graph interaction components: Tooltip.tsx showing connection type and description on edge/node hover, click-to-focus behavior that centers camera on clicked node and highlights its connections, Legend.tsx component showing all 6 connection types with color swatches | pending | - | - |
+| 1 | Build React 3D graph visualization | completed | frontend-developer | Graph3D.tsx with force-directed layout, custom node rendering, type-colored edges, ghost nodes, wired to App.tsx |
+| 2 | Build graph interaction components | completed | frontend-developer | Tooltip.tsx with node/link hover, click-to-focus camera zoom, Legend.tsx with 6 connection type swatches |
 
 ## Phase 5: Transition and Demo Polish
 | # | Task | Status | Agent | Notes |
 |---|------|--------|-------|-------|
-| 1 | Build the 2D-to-3D transition: CSS fade-out on canvas container, Three.js camera dolly-in animation on graph first render, smooth mode switching in App.tsx with animated opacity transitions between canvas/loading/graph states | pending | - | - |
-| 2 | Polish the demo experience: dark theme global CSS styling, ambient lighting and bloom post-processing on the 3D scene, TitleBar.tsx React component with Rhizome branding and back-to-canvas button, pre-load demo fragments as selected on app start for one-click demo flow | pending | - | - |
+| 1 | Build 2D-to-3D transition | completed | frontend-developer | CSS opacity transitions between modes, camera dolly-in animation on graph render |
+| 2 | Polish the demo experience | completed | frontend-developer | Dark theme CSS, ambient lighting + fog, TitleBar.tsx with branding, demo fragments pre-selected |
 
 ## Summary
-- **Current Phase**: 1
-- **Overall Progress**: 0/8 tasks completed
-- **Status**: in_progress
+- **Current Phase**: 5
+- **Overall Progress**: 8/8 tasks completed
+- **Status**: all_complete

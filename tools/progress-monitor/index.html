@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Progress Monitor</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+    background: #0d1117;
+    color: #c9d1d9;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  h1 { color: #58a6ff; font-size: 16px; margin-bottom: 4px; }
+  .meta { color: #484f58; font-size: 12px; margin-bottom: 24px; }
+  .summary-bar {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 24px;
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+  .summary-stat { text-align: center; }
+  .summary-stat .num { font-size: 28px; font-weight: bold; color: #58a6ff; }
+  .summary-stat .label { font-size: 11px; color: #484f58; text-transform: uppercase; }
+  .progress-track {
+    flex: 1;
+    height: 8px;
+    background: #21262d;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+  .fill-done { background: #3fb950; }
+  .fill-active { background: #d29922; }
+
+  .phase {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .phase-header {
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #21262d;
+  }
+  .phase-name { font-size: 13px; font-weight: 600; }
+  .phase-pct { font-size: 12px; color: #8b949e; margin-left: 8px; }
+  .phase-progress-track {
+    width: 80px;
+    height: 4px;
+    background: #21262d;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-left: auto;
+    margin-right: 10px;
+  }
+  .phase-progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease;
+    background: #3fb950;
+  }
+  .phase-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .badge-done { background: #238636; color: #3fb950; }
+  .badge-active { background: #2d1b00; color: #d29922; }
+  .badge-pending { background: #21262d; color: #484f58; }
+
+  .task {
+    padding: 8px 16px;
+    border-bottom: 1px solid #21262d;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .task:last-child { border-bottom: none; }
+  .task-icon { flex-shrink: 0; width: 18px; text-align: center; padding-top: 1px; }
+  .task-text { flex: 1; color: #8b949e; }
+  .task-agent { flex-shrink: 0; color: #484f58; font-size: 11px; }
+
+  .task.completed .task-text { color: #3fb950; text-decoration: line-through; text-decoration-color: #238636; }
+  .task.in_progress .task-text { color: #d29922; }
+  .task.pending .task-text { color: #484f58; }
+
+  .spinner {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .disconnected {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    background: #da3633;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+<h1>PROGRESS MONITOR</h1>
+<div class="meta">watching PROGRESS.md &mdash; last update: <span id="ts">--</span></div>
+<div id="app"></div>
+<div class="disconnected" id="dc">disconnected</div>
+
+<script>
+function parseProgress(md) {
+  const phases = [];
+  const lines = md.split('\n');
+  let current = null;
+  let summaryLines = [];
+  let inSummary = false;
+
+  for (const line of lines) {
+    const phaseMatch = line.match(/^## Phase (\d+): (.+)/);
+    if (phaseMatch) {
+      current = { num: parseInt(phaseMatch[1]), name: phaseMatch[2], tasks: [] };
+      phases.push(current);
+      inSummary = false;
+      continue;
+    }
+    if (line.startsWith('## Summary')) { inSummary = true; current = null; continue; }
+    if (inSummary) { summaryLines.push(line); continue; }
+
+    if (!current) continue;
+    // parse table rows (skip header + separator)
+    const rowMatch = line.match(/^\|\s*(\d+)\s*\|(.+)\|(.+)\|(.+)\|(.+)\|$/);
+    if (rowMatch) {
+      const text = rowMatch[2].trim();
+      const status = rowMatch[3].trim().toLowerCase().replace(/[*_]/g, '');
+      const agent = rowMatch[4].trim();
+      const notes = rowMatch[5].trim();
+      current.tasks.push({ text, status, agent, notes });
+    }
+  }
+
+  // Parse summary
+  let currentPhase = null, totalDone = 0, totalTasks = 0, overallStatus = '';
+  for (const sl of summaryLines) {
+    const cp = sl.match(/Current Phase.*?(\d+)/); if (cp) currentPhase = parseInt(cp[1]);
+    const op = sl.match(/(\d+)\/(\d+)/); if (op) { totalDone = parseInt(op[1]); totalTasks = parseInt(op[2]); }
+    const st = sl.match(/Status.*?:\s*(.+)/); if (st) overallStatus = st[1].trim();
+  }
+
+  return { phases, currentPhase, totalDone, totalTasks, overallStatus };
+}
+
+function icon(status) {
+  if (status === 'completed' || status === 'done') return '<span style="color:#3fb950">&#10003;</span>';
+  if (status === 'in_progress' || status === 'in-progress') return '<span class="spinner" style="color:#d29922">&#9696;</span>';
+  return '<span style="color:#30363d">&#9675;</span>';
+}
+
+function badge(phase, currentPhase) {
+  const done = phase.tasks.every(t => t.status === 'completed' || t.status === 'done');
+  const active = phase.tasks.some(t => t.status === 'in_progress' || t.status === 'in-progress');
+  if (done) return '<span class="phase-badge badge-done">DONE</span>';
+  if (active) return '<span class="phase-badge badge-active">ACTIVE</span>';
+  return '<span class="phase-badge badge-pending">PENDING</span>';
+}
+
+function normalizeStatus(s) {
+  if (s === 'done' || s === 'completed') return 'completed';
+  if (s === 'in_progress' || s === 'in-progress') return 'in_progress';
+  return 'pending';
+}
+
+function truncate(text, len) {
+  return text.length > len ? text.slice(0, len) + '...' : text;
+}
+
+function render(md) {
+  const { phases, currentPhase, totalDone, totalTasks, overallStatus } = parseProgress(md);
+  const app = document.getElementById('app');
+
+  const donePct = totalTasks > 0 ? (totalDone / totalTasks * 100) : 0;
+  const activeTasks = phases.reduce((n, p) => n + p.tasks.filter(t => normalizeStatus(t.status) === 'in_progress').length, 0);
+
+  let html = `
+    <div class="summary-bar">
+      <div class="summary-stat"><div class="num">${Math.round(donePct)}%</div><div class="label">Overall</div></div>
+      <div class="summary-stat"><div class="num">${totalDone}/${totalTasks}</div><div class="label">Tasks Done</div></div>
+      <div class="summary-stat"><div class="num">${activeTasks}</div><div class="label">Active</div></div>
+      <div class="summary-stat"><div class="num">${phases.length}</div><div class="label">Phases</div></div>
+      <div class="progress-track">
+        <div class="progress-fill fill-done" style="width:${donePct}%"></div>
+      </div>
+    </div>
+  `;
+
+  for (const phase of phases) {
+    const phaseDone = phase.tasks.filter(t => normalizeStatus(t.status) === 'completed').length;
+    const phasePct = phase.tasks.length > 0 ? Math.round(phaseDone / phase.tasks.length * 100) : 0;
+    html += `<div class="phase">
+      <div class="phase-header">
+        <span class="phase-name">Phase ${phase.num}: ${phase.name}<span class="phase-pct">${phasePct}%</span></span>
+        <div class="phase-progress-track"><div class="phase-progress-fill" style="width:${phasePct}%"></div></div>
+        ${badge(phase, currentPhase)}
+      </div>`;
+    for (const t of phase.tasks) {
+      const ns = normalizeStatus(t.status);
+      const agentLabel = t.agent && t.agent !== '-' ? t.agent : '';
+      html += `<div class="task ${ns}">
+        <div class="task-icon">${icon(ns)}</div>
+        <div class="task-text">${truncate(t.text, 120)}</div>
+        ${agentLabel ? `<div class="task-agent">${agentLabel}</div>` : ''}
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  app.innerHTML = html;
+}
+
+// SSE connection
+function connect() {
+  const es = new EventSource('/events');
+  const dc = document.getElementById('dc');
+
+  es.onmessage = (e) => {
+    dc.style.display = 'none';
+    const { content, ts } = JSON.parse(e.data);
+    document.getElementById('ts').textContent = new Date(ts).toLocaleTimeString();
+    render(content);
+  };
+
+  es.onerror = () => {
+    dc.style.display = 'block';
+    es.close();
+    setTimeout(connect, 2000);
+  };
+}
+
+connect();
+</script>
+</body>
+</html>
