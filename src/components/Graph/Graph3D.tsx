@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import Tooltip from './Tooltip';
 import Legend from './Legend';
 import SidePanel from './SidePanel';
+import Graph2D from './Graph2D';
 
 interface Graph3DProps {
   graphData: GraphData;
@@ -45,6 +46,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [openFragmentIds, setOpenFragmentIds] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>('2d');
 
   useEffect(() => {
     onNodeSelectionChange(Array.from(openFragmentIds));
@@ -316,253 +318,305 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }} onMouseMove={handleMouseMove}>
-      <ForceGraph3D
-        ref={fgRef}
-        graphData={{ nodes: nodes as any, links: links as any }}
-        nodeThreeObject={nodeThreeObject}
-        nodeThreeObjectExtend={false}
-        linkColor={linkColor}
-        linkWidth={linkWidth}
-        linkDirectionalParticles={2}
-        linkDirectionalParticleWidth={1}
-        onNodeClick={handleNodeClick}
-        onNodeDragEnd={handleNodeDragEnd}
-        onEngineStop={handleEngineStop}
-        onNodeHover={handleNodeHover}
-        onLinkHover={handleLinkHover}
-        backgroundColor="#0a0a0a"
-        showNavInfo={false}
-        cooldownTime={4000}
-        d3VelocityDecay={0.6}
-      />
-
-      {(graphData.field_reading || graphData.emergent_theme) && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '4rem',
-            left: '1.5rem',
-            maxWidth: '420px',
-            zIndex: 10,
-            background: 'linear-gradient(135deg, rgba(10,10,10,0.85), rgba(10,10,10,0.6))',
-            borderRadius: '10px',
-            padding: '1rem 1.25rem',
-            border: '1px solid rgba(255,255,255,0.06)',
-            backdropFilter: 'blur(12px)',
-          }}
-        >
-          {graphData.emergent_theme && (
-            <div
-              style={{
-                fontFamily: 'monospace',
-                fontSize: '0.7rem',
-                color: '#4ADE80',
-                letterSpacing: '0.2em',
-                textTransform: 'uppercase',
-                marginBottom: '0.4rem',
-              }}
-            >
-              {graphData.emergent_theme}
-            </div>
-          )}
-          {graphData.field_reading && (
-            <div
-              style={{
-                fontFamily: "'Georgia', serif",
-                fontSize: '0.9rem',
-                color: '#999',
-                lineHeight: 1.7,
-                fontStyle: 'italic',
-              }}
-            >
-              {graphData.field_reading}
-            </div>
-          )}
-        </div>
-      )}
-
-      {hoverInfo && <Tooltip info={{ ...hoverInfo, position: mousePos }} />}
-      <Legend />
-      <button
-        onClick={handleRecenter}
+      {/* 2D/3D Toggle */}
+      <div
         style={{
           position: 'absolute',
-          bottom: '13.5rem',
-          left: '1.5rem',
+          top: '4rem',
+          right: '1.5rem',
+          zIndex: 20,
+          display: 'flex',
           background: 'rgba(15, 15, 15, 0.9)',
           border: '1px solid rgba(255, 255, 255, 0.1)',
           borderRadius: '8px',
-          padding: '0.5rem 0.75rem',
+          overflow: 'hidden',
           backdropFilter: 'blur(8px)',
-          cursor: 'pointer',
-          fontFamily: 'monospace',
-          fontSize: '0.7rem',
-          color: '#a3a3a3',
-          letterSpacing: '0.05em',
-          transition: 'color 0.2s, border-color 0.2s',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = '#e5e5e5';
-          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = '#a3a3a3';
-          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
         }}
       >
-        Recenter
-      </button>
-      {openFragmentIds.size > 0 && (
-        <SidePanel
-          secondaryAnalysis={secondaryAnalysis}
-          loading={secondaryLoading}
-          fragments={fragments}
-        />
-      )}
-      {/* Theme legend */}
-      {graphData.themes && graphData.themes.length > 0 && (
-        <div
+        <button
+          onClick={() => setViewMode('2d')}
           style={{
-            position: 'absolute',
-            bottom: '1.5rem',
-            right: '1.5rem',
-            background: 'rgba(15, 15, 15, 0.9)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '8px',
-            padding: '0.75rem 1rem',
-            backdropFilter: 'blur(8px)',
+            padding: '0.5rem 1rem',
+            background: viewMode === '2d' ? 'rgba(124, 58, 237, 0.3)' : 'transparent',
+            border: 'none',
+            borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+            color: viewMode === '2d' ? '#A855F7' : '#666',
+            cursor: 'pointer',
+            fontFamily: 'monospace',
+            fontSize: '0.8rem',
+            fontWeight: viewMode === '2d' ? 700 : 400,
+            letterSpacing: '0.05em',
+            transition: 'all 0.2s ease',
           }}
         >
-          <div
-            style={{
-              fontFamily: 'monospace',
-              fontSize: '0.7rem',
-              color: '#525252',
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              marginBottom: '0.5rem',
-            }}
-          >
-            Themes
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            {graphData.themes.map((theme) => (
-              <div key={theme.name} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          2D
+        </button>
+        <button
+          onClick={() => setViewMode('3d')}
+          style={{
+            padding: '0.5rem 1rem',
+            background: viewMode === '3d' ? 'rgba(124, 58, 237, 0.3)' : 'transparent',
+            border: 'none',
+            color: viewMode === '3d' ? '#A855F7' : '#666',
+            cursor: 'pointer',
+            fontFamily: 'monospace',
+            fontSize: '0.8rem',
+            fontWeight: viewMode === '3d' ? 700 : 400,
+            letterSpacing: '0.05em',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          3D
+        </button>
+      </div>
+
+      {viewMode === '2d' ? (
+        <Graph2D
+          graphData={graphData}
+          fragments={fragments}
+          onBackToCanvas={onBackToCanvas}
+          onNodeSelectionChange={onNodeSelectionChange}
+        />
+      ) : (
+        <>
+          <ForceGraph3D
+            ref={fgRef}
+            graphData={{ nodes: nodes as any, links: links as any }}
+            nodeThreeObject={nodeThreeObject}
+            nodeThreeObjectExtend={false}
+            linkColor={linkColor}
+            linkWidth={linkWidth}
+            linkDirectionalParticles={2}
+            linkDirectionalParticleWidth={1}
+            onNodeClick={handleNodeClick}
+            onNodeDragEnd={handleNodeDragEnd}
+            onEngineStop={handleEngineStop}
+            onNodeHover={handleNodeHover}
+            onLinkHover={handleLinkHover}
+            backgroundColor="#0a0a0a"
+            showNavInfo={false}
+            cooldownTime={4000}
+            d3VelocityDecay={0.6}
+          />
+
+          {(graphData.field_reading || graphData.emergent_theme) && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '1.5rem',
+                left: '24rem',
+                maxWidth: '420px',
+                zIndex: 10,
+                background: 'linear-gradient(135deg, rgba(10,10,10,0.85), rgba(10,10,10,0.6))',
+                borderRadius: '10px',
+                padding: '1rem 1.25rem',
+                border: '1px solid rgba(255,255,255,0.06)',
+                backdropFilter: 'blur(12px)',
+              }}
+            >
+              {graphData.emergent_theme && (
                 <div
-                  style={{
-                    width: '14px',
-                    height: '14px',
-                    borderRadius: '50%',
-                    backgroundColor: theme.color,
-                    flexShrink: 0,
-                  }}
-                />
-                <span
                   style={{
                     fontFamily: 'monospace',
-                    fontSize: '0.75rem',
-                    color: theme.color,
+                    fontSize: '0.7rem',
+                    color: '#4ADE80',
+                    letterSpacing: '0.2em',
+                    textTransform: 'uppercase',
+                    marginBottom: '0.4rem',
                   }}
                 >
-                  {theme.name}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-
-      {openFragmentIds.size > 0 && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '4rem',
-            right: '1.5rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.75rem',
-            maxHeight: 'calc(100vh - 10rem)',
-            overflowY: 'auto',
-            width: '320px',
-          }}
-        >
-          {fragments
-            .filter((f) => openFragmentIds.has(f.id))
-            .map((f) => {
-              const theme = (graphData.themes || []).find((t) =>
-                t.fragment_ids.includes(f.id)
-              );
-              const color = theme?.color || '#3B82F6';
-              const summary = (graphData.summaries || []).find((s) => s.id === f.id);
-
-              return (
+                  {graphData.emergent_theme}
+                </div>
+              )}
+              {graphData.field_reading && (
                 <div
-                  key={f.id}
                   style={{
-                    background: 'rgba(15, 15, 15, 0.95)',
-                    border: `1px solid ${color}40`,
-                    borderLeft: `3px solid ${color}`,
-                    borderRadius: '8px',
-                    padding: '0.75rem 1rem',
-                    backdropFilter: 'blur(8px)',
+                    fontFamily: "'Georgia', serif",
+                    fontSize: '0.9rem',
+                    color: '#999',
+                    lineHeight: 1.7,
+                    fontStyle: 'italic',
                   }}
                 >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      marginBottom: '0.5rem',
-                    }}
-                  >
+                  {graphData.field_reading}
+                </div>
+              )}
+            </div>
+          )}
+
+          {hoverInfo && <Tooltip info={{ ...hoverInfo, position: mousePos }} />}
+          <Legend />
+          <button
+            onClick={handleRecenter}
+            style={{
+              position: 'absolute',
+              bottom: '13.5rem',
+              left: '1.5rem',
+              background: 'rgba(15, 15, 15, 0.9)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '8px',
+              padding: '0.5rem 0.75rem',
+              backdropFilter: 'blur(8px)',
+              cursor: 'pointer',
+              fontFamily: 'monospace',
+              fontSize: '0.7rem',
+              color: '#a3a3a3',
+              letterSpacing: '0.05em',
+            }}
+          >
+            Recenter
+          </button>
+          {openFragmentIds.size > 0 && (
+            <SidePanel
+              secondaryAnalysis={secondaryAnalysis}
+              loading={secondaryLoading}
+              fragments={fragments}
+            />
+          )}
+          {graphData.themes && graphData.themes.length > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '1.5rem',
+                right: '1.5rem',
+                background: 'rgba(15, 15, 15, 0.9)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '8px',
+                padding: '0.75rem 1rem',
+                backdropFilter: 'blur(8px)',
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: 'monospace',
+                  fontSize: '0.7rem',
+                  color: '#525252',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  marginBottom: '0.5rem',
+                }}
+              >
+                Themes
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                {graphData.themes.map((theme) => (
+                  <div key={theme.name} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div
+                      style={{
+                        width: '14px',
+                        height: '14px',
+                        borderRadius: '50%',
+                        backgroundColor: theme.color,
+                        flexShrink: 0,
+                      }}
+                    />
                     <span
                       style={{
                         fontFamily: 'monospace',
-                        fontSize: '0.7rem',
-                        color: color,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
+                        fontSize: '0.75rem',
+                        color: theme.color,
                       }}
                     >
-                      {summary?.summary || 'Fragment'}
+                      {theme.name}
                     </span>
-                    <button
-                      onClick={() =>
-                        setOpenFragmentIds((prev) => {
-                          const next = new Set(prev);
-                          next.delete(f.id);
-                          return next;
-                        })
-                      }
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {openFragmentIds.size > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '4rem',
+                right: '1.5rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+                maxHeight: 'calc(100vh - 10rem)',
+                overflowY: 'auto',
+                width: '320px',
+                marginTop: '3rem',
+              }}
+            >
+              {fragments
+                .filter((f) => openFragmentIds.has(f.id))
+                .map((f) => {
+                  const theme = (graphData.themes || []).find((t) =>
+                    t.fragment_ids.includes(f.id)
+                  );
+                  const color = theme?.color || '#3B82F6';
+                  const summary = (graphData.summaries || []).find((s) => s.id === f.id);
+
+                  return (
+                    <div
+                      key={f.id}
                       style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#525252',
-                        cursor: 'pointer',
-                        fontSize: '1rem',
-                        lineHeight: 1,
-                        padding: '0 0 0 0.5rem',
+                        background: 'rgba(15, 15, 15, 0.95)',
+                        border: `1px solid ${color}40`,
+                        borderLeft: `3px solid ${color}`,
+                        borderRadius: '8px',
+                        padding: '0.75rem 1rem',
+                        backdropFilter: 'blur(8px)',
                       }}
                     >
-                      ×
-                    </button>
-                  </div>
-                  <p
-                    style={{
-                      fontFamily: "'Georgia', serif",
-                      fontSize: '0.85rem',
-                      color: '#d4d4d4',
-                      lineHeight: 1.6,
-                      margin: 0,
-                    }}
-                  >
-                    {f.text}
-                  </p>
-                </div>
-              );
-            })}
-        </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'flex-start',
+                          marginBottom: '0.5rem',
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: 'monospace',
+                            fontSize: '0.7rem',
+                            color: color,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                          }}
+                        >
+                          {summary?.summary || 'Fragment'}
+                        </span>
+                        <button
+                          onClick={() =>
+                            setOpenFragmentIds((prev) => {
+                              const next = new Set(prev);
+                              next.delete(f.id);
+                              return next;
+                            })
+                          }
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#525252',
+                            cursor: 'pointer',
+                            fontSize: '1rem',
+                            lineHeight: 1,
+                            padding: '0 0 0 0.5rem',
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <p
+                        style={{
+                          fontFamily: "'Georgia', serif",
+                          fontSize: '0.85rem',
+                          color: '#d4d4d4',
+                          lineHeight: 1.6,
+                          margin: 0,
+                        }}
+                      >
+                        {f.text}
+                      </p>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
