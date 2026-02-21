@@ -12,7 +12,13 @@ export interface Fragment {
   image?: {
     base64: string;      // base64-encoded image data (no prefix)
     mimeType: string;    // e.g. 'image/jpeg', 'image/png'
-    thumbnail: string;   // data URL for display: `data:${mimeType};base64,${base64}` 
+    thumbnail: string;   // data URL for display: `data:${mimeType};base64,${base64}`
+    reading?: {
+      surface: string;
+      mood: string;
+      metaphor: string;
+      fragment: string;
+    };
   };
 }
 

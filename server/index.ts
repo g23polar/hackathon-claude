@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { analyzeRoute } from './routes/analyze.js';
 import { analyzeSecondaryRoute } from './routes/analyze-secondary.js';
+import { describeImageRoute } from './routes/describe-image.js';
 
 dotenv.config();
 
@@ -15,6 +16,7 @@ app.use(express.json({ limit: '50mb' }));
 // API routes
 app.use('/api', analyzeRoute);
 app.use('/api', analyzeSecondaryRoute);
+app.use('/api', describeImageRoute);
 
 // Health check
 app.get('/api/health', (_req, res) => {

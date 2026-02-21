@@ -57,6 +57,12 @@ export default function App() {
     });
   }, []);
 
+  const handleUpdateFragment = useCallback((id: string, updates: Partial<Fragment>) => {
+    setFragments((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, ...updates } : f))
+    );
+  }, []);
+
   const handleDeleteFragment = useCallback((id: string) => {
     setFragments((prev) => prev.filter((f) => f.id !== id));
   }, []);
@@ -160,6 +166,7 @@ export default function App() {
             fragments={fragments}
             onAddFragment={handleAddFragment}
             onAddMultiple={handleAddMultiple}
+            onUpdateFragment={handleUpdateFragment}
             onDeleteFragment={handleDeleteFragment}
             onAnalyze={handleAnalyze}
           />

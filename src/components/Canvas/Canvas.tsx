@@ -10,6 +10,7 @@ interface CanvasProps {
   fragments: Fragment[];
   onAddFragment: (fragment: Fragment) => void;
   onAddMultiple: (fragments: Fragment[]) => void;
+  onUpdateFragment: (id: string, updates: Partial<Fragment>) => void;
   onDeleteFragment: (id: string) => void;
   onAnalyze: () => void;
 }
@@ -18,6 +19,7 @@ export default function Canvas({
   fragments,
   onAddFragment,
   onAddMultiple,
+  onUpdateFragment,
   onDeleteFragment,
   onAnalyze,
 }: CanvasProps) {
@@ -32,33 +34,59 @@ export default function Canvas({
     quickInputRef.current?.focus();
   }, []);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith('image/')) return;
-      
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        // Extract base64 portion (remove "data:image/jpeg;base64," prefix)
-        const base64 = dataUrl.split(',')[1];
-        
-        onAddFragment({
-          id: `frag-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          text: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
-          image: {
-            base64,
-            mimeType: file.type,
-            thumbnail: dataUrl,
-          },
-        });
+
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith('image/')) continue;
+
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+
+      const base64 = dataUrl.split(',')[1];
+      const fragId = `frag-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+      // Add immediately with placeholder text
+      const frag: Fragment = {
+        id: fragId,
+        text: '\u2726 reading image...',
+        image: {
+          base64,
+          mimeType: file.type,
+          thumbnail: dataUrl,
+        },
       };
-      reader.readAsDataURL(file);
-    });
-    
-    // Reset input so same file can be re-selected
+      onAddFragment(frag);
+
+      // Describe in background, then update the fragment text
+      try {
+        const response = await fetch('/api/describe-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: { base64, mimeType: file.type } }),
+        });
+        if (response.ok) {
+          const reading = await response.json();
+          // Update the fragment with the AI reading
+          onUpdateFragment(fragId, {
+            text: reading.fragment,
+            image: {
+              base64,
+              mimeType: file.type,
+              thumbnail: dataUrl,
+              reading,
+            },
+          });
+        }
+      } catch (err) {
+        console.error('Image description failed:', err);
+      }
+    }
+
     e.target.value = '';
   };
 
@@ -71,32 +99,57 @@ export default function Canvas({
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     const files = e.dataTransfer.files;
     if (!files.length) return;
-    
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith('image/')) return;
-      
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        const base64 = dataUrl.split(',')[1];
-        
-        onAddFragment({
-          id: `frag-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          text: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
-          image: {
-            base64,
-            mimeType: file.type,
-            thumbnail: dataUrl,
-          },
-        });
+
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith('image/')) continue;
+
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+
+      const base64 = dataUrl.split(',')[1];
+      const fragId = `frag-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+      const frag: Fragment = {
+        id: fragId,
+        text: '\u2726 reading image...',
+        image: {
+          base64,
+          mimeType: file.type,
+          thumbnail: dataUrl,
+        },
       };
-      reader.readAsDataURL(file);
-    });
+      onAddFragment(frag);
+
+      try {
+        const response = await fetch('/api/describe-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: { base64, mimeType: file.type } }),
+        });
+        if (response.ok) {
+          const reading = await response.json();
+          onUpdateFragment(fragId, {
+            text: reading.fragment,
+            image: {
+              base64,
+              mimeType: file.type,
+              thumbnail: dataUrl,
+              reading,
+            },
+          });
+        }
+      } catch (err) {
+        console.error('Image description failed:', err);
+      }
+    }
   };
 
   const handleQuickAdd = (e: React.FormEvent) => {

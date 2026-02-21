@@ -77,14 +77,36 @@ export default function FragmentCard({ fragment, onDelete }: FragmentCardProps) 
           />
           <p
             style={{
-              fontFamily: 'monospace',
-              fontSize: '0.7rem',
-              color: '#525252',
+              fontFamily: "'Georgia', serif",
+              fontSize: '0.85rem',
+              color: fragment.text.startsWith('\u2726') ? '#666' : '#d4d4d4',
+              fontStyle: fragment.text.startsWith('\u2726') ? 'italic' : 'normal',
+              lineHeight: 1.5,
               margin: 0,
             }}
           >
             {fragment.text}
           </p>
+          {fragment.image.reading && isHovered && (
+            <div
+              style={{
+                padding: '0.4rem 0.6rem',
+                background: 'rgba(255,255,255,0.03)',
+                borderRadius: '4px',
+                borderLeft: '2px solid rgba(124, 58, 237, 0.4)',
+              }}
+            >
+              <p style={{
+                fontFamily: 'monospace',
+                fontSize: '0.65rem',
+                color: '#737373',
+                margin: 0,
+                lineHeight: 1.5,
+              }}>
+                {fragment.image.reading.metaphor}
+              </p>
+            </div>
+          )}
         </div>
       ) : (
         <p
