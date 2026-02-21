@@ -40,6 +40,10 @@ export default function App() {
     setFragments((prev) => [...prev, fragment]);
   }, []);
 
+  const handleAddMultiple = useCallback((newFragments: Fragment[]) => {
+    setFragments((prev) => [...prev, ...newFragments]);
+  }, []);
+
   const handleDeleteFragment = useCallback((id: string) => {
     setFragments((prev) => prev.filter((f) => f.id !== id));
     setSelectedIds((prev) => {
@@ -115,6 +119,8 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [mode, selectedIds, handleSelectAll, handleAnalyze, handleBackToCanvas]);
+
+
   // Re-run Professor Alan whenever the graph node selection changes
   const handleNodeSelectionChange = useCallback(
     (selectedNodeIds: string[]) => {
@@ -170,6 +176,7 @@ export default function App() {
             onSelectAll={handleSelectAll}
             onUnselectAll={handleUnselectAll}
             onAddFragment={handleAddFragment}
+            onAddMultiple={handleAddMultiple}
             onDeleteFragment={handleDeleteFragment}
             onAnalyze={handleAnalyze}
           />
