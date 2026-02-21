@@ -183,15 +183,42 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       const sphere = new THREE.Mesh(geometry, material);
       group.add(sphere);
 
-      // Label sprite
+      // Label sprite with word-wrap
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d')!;
+      const fontSize = 28;
+      const lineHeight = fontSize * 1.3;
+      const maxWidth = 900;
       canvas.width = 1024;
-      canvas.height = 64;
-      ctx.font = '24px monospace';
+
+      ctx.font = `${fontSize}px monospace`;
+      // Word-wrap the label
+      const words = graphNode.label.split(' ');
+      const lines: string[] = [];
+      let currentLine = '';
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+
+      const totalTextHeight = lines.length * lineHeight;
+      canvas.height = Math.max(64, Math.ceil(totalTextHeight + fontSize));
+
+      // Re-set font after resizing canvas (resets context)
+      ctx.font = `${fontSize}px monospace`;
       ctx.fillStyle = isDimmed ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.9)';
       ctx.textAlign = 'center';
-      ctx.fillText(graphNode.label, 512, 40);
+      ctx.textBaseline = 'top';
+      const startY = (canvas.height - totalTextHeight) / 2;
+      for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i], canvas.width / 2, startY + i * lineHeight);
+      }
 
       const texture = new THREE.CanvasTexture(canvas);
       const spriteMaterial = new THREE.SpriteMaterial({
@@ -200,8 +227,10 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
         depthWrite: false,
       });
       const sprite = new THREE.Sprite(spriteMaterial);
-      sprite.scale.set(80, 5, 1);
-      sprite.position.set(0, size + 6, 0);
+      const aspect = canvas.width / canvas.height;
+      const spriteWidth = 80;
+      sprite.scale.set(spriteWidth, spriteWidth / aspect, 1);
+      sprite.position.set(0, size + 6 + (spriteWidth / aspect) / 2, 0);
       group.add(sprite);
 
       return group;
