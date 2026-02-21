@@ -198,7 +198,7 @@ export default function Canvas({
               margin: 0,
             }}
           >
-            Rhizome
+            Constellation
           </h1>
           <span
             style={{

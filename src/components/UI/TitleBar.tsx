@@ -49,7 +49,7 @@ export default function TitleBar({ showBackButton, onBackToCanvas }: TitleBarPro
             color: '#737373',
           }}
         >
-          Rhizome
+          Constellation
         </h1>
       </div>
       <span

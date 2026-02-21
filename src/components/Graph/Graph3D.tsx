@@ -23,6 +23,7 @@ interface GraphNode {
   isGhost: boolean;
   connectionCount: number;
   themeColor: string;
+  thumbnail?: string;
   x?: number;
   y?: number;
   z?: number;
@@ -38,6 +39,7 @@ interface GraphLink {
 
 export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSelectionChange, secondaryAnalysis, secondaryLoading }: Graph3DProps) {
   const fgRef = useRef<any>(null);
+  const textureCache = useRef<Map<string, THREE.Texture>>(new Map());
   const [hoverInfo, setHoverInfo] = useState<{
     type: 'node' | 'link';
     data: any;
@@ -128,6 +130,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       isGhost: false,
       connectionCount: connectionCounts[f.id] || 0,
       themeColor: themeColorMap.get(f.id) || '#3B82F6',
+      thumbnail: f.image?.thumbnail,
     }));
 
     const ghostNodes: GraphNode[] = graphData.ghosts.map((g) => ({
@@ -195,22 +198,45 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
       const group = new THREE.Group();
 
-      const geometry = graphNode.isGhost
-        ? new THREE.OctahedronGeometry(size, 0)
-        : new THREE.SphereGeometry(size, 24, 24);
+      if (graphNode.thumbnail) {
+        // Image node: render as a billboard sprite that always faces the camera
+        const imgSize = size * 2.5;
+        let texture = textureCache.current.get(graphNode.id);
+        if (!texture) {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.src = graphNode.thumbnail;
+          texture = new THREE.Texture(img);
+          img.onload = () => { texture!.needsUpdate = true; };
+          textureCache.current.set(graphNode.id, texture);
+        }
+        const spriteMat = new THREE.SpriteMaterial({
+          map: texture,
+          transparent: true,
+          opacity: isDimmed ? 0.3 : 1.0,
+        });
+        const imgSprite = new THREE.Sprite(spriteMat);
+        imgSprite.scale.set(imgSize, imgSize, 1);
+        group.add(imgSprite);
+      } else {
+        const geometry = graphNode.isGhost
+          ? new THREE.OctahedronGeometry(size, 0)
+          : new THREE.SphereGeometry(size, 24, 24);
 
-      const material = new THREE.MeshPhongMaterial({
-        color: graphNode.themeColor,
-        transparent: false,
-        opacity: 1.0,
-        emissive: isFocused ? graphNode.themeColor : '#000000',
-        emissiveIntensity: isFocused ? 0.4 : 0.1,
-        wireframe: graphNode.isGhost,
-      });
-      const mesh = new THREE.Mesh(geometry, material);
-      group.add(mesh);
+        const material = new THREE.MeshPhongMaterial({
+          color: graphNode.themeColor,
+          transparent: false,
+          opacity: 1.0,
+          emissive: isFocused ? graphNode.themeColor : '#000000',
+          emissiveIntensity: isFocused ? 0.4 : 0.1,
+          wireframe: graphNode.isGhost,
+        });
+        const mesh = new THREE.Mesh(geometry, material);
+        group.add(mesh);
+      }
 
-      const glowGeom = new THREE.SphereGeometry(size * 2, 16, 16);
+      const glowRadius = graphNode.thumbnail ? size * 3 : size * 2;
+      const glowGeom = new THREE.SphereGeometry(glowRadius, 16, 16);
       const glowMat = new THREE.MeshBasicMaterial({
         color: graphNode.themeColor,
         transparent: true,
@@ -220,7 +246,8 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
       // Green selection halo
       if (isSelected) {
-        const haloGeom = new THREE.SphereGeometry(size * 2.5, 16, 16);
+        const haloRadius = graphNode.thumbnail ? size * 3.5 : size * 2.5;
+        const haloGeom = new THREE.SphereGeometry(haloRadius, 16, 16);
         const haloMat = new THREE.MeshBasicMaterial({
           color: '#22C55E',
           transparent: true,
@@ -253,7 +280,8 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       sprite.renderOrder = 999;
       const spriteWidth = (canvas.width / canvas.height) * 8;
       sprite.scale.set(spriteWidth, 8, 1);
-      sprite.position.set(0, size + 8, 0);
+      const labelY = graphNode.thumbnail ? size * 2.5 / 2 + 6 : size + 8;
+      sprite.position.set(0, labelY, 0);
       group.add(sprite);
 
       return group;

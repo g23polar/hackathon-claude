@@ -7,7 +7,7 @@ const LOADING_MESSAGES = [
   'Following genealogies...',
   'Discovering metaphoric bridges...',
   'Summoning ghost nodes...',
-  'Weaving the rhizome...',
+  'Mapping the constellation...',
 ];
 
 export default function LoadingState() {

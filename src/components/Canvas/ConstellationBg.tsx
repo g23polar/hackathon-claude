@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo } from 'react';
 import { tsParticles } from '@tsparticles/engine';
 import { loadSlim } from '@tsparticles/slim';
 
-const CONTAINER_ID = 'rhizome-constellation';
+const CONTAINER_ID = 'constellation-bg';
 
 export default function ConstellationBg() {
   const containerRef = useRef<HTMLDivElement>(null);

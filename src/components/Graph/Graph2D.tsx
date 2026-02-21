@@ -21,6 +21,7 @@ interface GraphNode {
   isGhost: boolean;
   connectionCount: number;
   themeColor: string;
+  thumbnail?: string;
   x?: number;
   y?: number;
 }
@@ -35,6 +36,7 @@ interface GraphLink {
 
 export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSelectionChange, secondaryAnalysis, secondaryLoading }: Graph2DProps) {
   const fgRef = useRef<any>(null);
+  const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
   const [hoverInfo, setHoverInfo] = useState<{
     type: 'node' | 'link';
     data: any;
@@ -91,6 +93,7 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
       isGhost: false,
       connectionCount: connectionCounts[f.id] || 0,
       themeColor: themeColorMap.get(f.id) || '#3B82F6',
+      thumbnail: f.image?.thumbnail,
     }));
 
     const ghostNodes: GraphNode[] = graphData.ghosts.map((g) => ({
@@ -175,29 +178,62 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
       }
 
       // Node shape
-      ctx.beginPath();
-      if (graphNode.isGhost) {
-        ctx.moveTo(node.x, node.y - size);
-        ctx.lineTo(node.x + size, node.y);
-        ctx.lineTo(node.x, node.y + size);
-        ctx.lineTo(node.x - size, node.y);
-        ctx.closePath();
-        ctx.strokeStyle = graphNode.themeColor + (isDimmed ? '30' : '99');
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([3, 3]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = graphNode.themeColor + (isDimmed ? '08' : '20');
-        ctx.fill();
-      } else {
-        ctx.arc(node.x, node.y, size, 0, 2 * Math.PI);
-        ctx.fillStyle = graphNode.themeColor + (isDimmed ? '25' : 'DD');
-        ctx.fill();
-
-        if (isFocused) {
-          ctx.strokeStyle = graphNode.themeColor;
-          ctx.lineWidth = 2;
+      if (graphNode.thumbnail) {
+        // Image node
+        const imgSize = size * 3;
+        let img = imageCache.current.get(graphNode.id);
+        if (!img) {
+          img = new Image();
+          img.src = graphNode.thumbnail;
+          imageCache.current.set(graphNode.id, img);
+        }
+        if (img.complete && img.naturalWidth > 0) {
+          ctx.save();
+          ctx.globalAlpha = isDimmed ? 0.3 : 1.0;
+          // Clip to circle
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, imgSize / 2, 0, 2 * Math.PI);
+          ctx.clip();
+          ctx.drawImage(img, node.x - imgSize / 2, node.y - imgSize / 2, imgSize, imgSize);
+          ctx.restore();
+          // Border
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, imgSize / 2, 0, 2 * Math.PI);
+          ctx.strokeStyle = graphNode.themeColor + (isDimmed ? '30' : isFocused ? 'FF' : '88');
+          ctx.lineWidth = 1.5;
           ctx.stroke();
+        } else {
+          // Fallback while loading
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, imgSize / 2, 0, 2 * Math.PI);
+          ctx.fillStyle = graphNode.themeColor + '25';
+          ctx.fill();
+        }
+      } else {
+        ctx.beginPath();
+        if (graphNode.isGhost) {
+          ctx.moveTo(node.x, node.y - size);
+          ctx.lineTo(node.x + size, node.y);
+          ctx.lineTo(node.x, node.y + size);
+          ctx.lineTo(node.x - size, node.y);
+          ctx.closePath();
+          ctx.strokeStyle = graphNode.themeColor + (isDimmed ? '30' : '99');
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([3, 3]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = graphNode.themeColor + (isDimmed ? '08' : '20');
+          ctx.fill();
+        } else {
+          ctx.arc(node.x, node.y, size, 0, 2 * Math.PI);
+          ctx.fillStyle = graphNode.themeColor + (isDimmed ? '25' : 'DD');
+          ctx.fill();
+
+          if (isFocused) {
+            ctx.strokeStyle = graphNode.themeColor;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
         }
       }
 
@@ -214,7 +250,8 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
         : graphNode.isGhost
         ? 'rgba(255,255,255,0.5)'
         : 'rgba(255,255,255,0.9)';
-      ctx.fillText(label, node.x, node.y + size + fontSize + 2);
+      const labelOffset = graphNode.thumbnail ? size * 1.5 + fontSize + 2 : size + fontSize + 2;
+      ctx.fillText(label, node.x, node.y + labelOffset);
     },
     [focusedNodeId, links, activeThemeFragmentIds, openFragmentIds]
   );
@@ -242,7 +279,9 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
   }, []);
 
   const nodePointerAreaPaint = useCallback((node: any, color: string, ctx: CanvasRenderingContext2D) => {
-    const size = 4 + ((node as GraphNode).connectionCount || 0) * 1.5;
+    const graphNode = node as GraphNode;
+    const baseSize = 4 + (graphNode.connectionCount || 0) * 1.5;
+    const size = graphNode.thumbnail ? baseSize * 1.5 : baseSize;
     ctx.beginPath();
     ctx.arc(node.x, node.y, size + 4, 0, 2 * Math.PI);
     ctx.fillStyle = color;
