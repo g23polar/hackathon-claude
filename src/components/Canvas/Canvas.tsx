@@ -8,6 +8,8 @@ interface CanvasProps {
   fragments: Fragment[];
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
+  onSelectAll: () => void;
+  onUnselectAll: () => void;
   onAddFragment: (fragment: Fragment) => void;
   onAnalyze: () => void;
 }
@@ -16,6 +18,8 @@ export default function Canvas({
   fragments,
   selectedIds,
   onToggleSelect,
+  onSelectAll,
+  onUnselectAll,
   onAddFragment,
   onAnalyze,
 }: CanvasProps) {
@@ -69,6 +73,41 @@ export default function Canvas({
           </span>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          {selectedIds.size < fragments.length ? (
+            <button
+              onClick={onSelectAll}
+              style={{
+                padding: '0.5rem 1rem',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '6px',
+                color: '#a3a3a3',
+                cursor: 'pointer',
+                fontFamily: 'monospace',
+                fontSize: '0.85rem',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              Select All
+            </button>
+          ) : (
+            <button
+              onClick={onUnselectAll}
+              style={{
+                padding: '0.5rem 1rem',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '6px',
+                color: '#a3a3a3',
+                cursor: 'pointer',
+                fontFamily: 'monospace',
+                fontSize: '0.85rem',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              Unselect All
+            </button>
+          )}
           <button
             onClick={() => setIsModalOpen(true)}
             style={{
