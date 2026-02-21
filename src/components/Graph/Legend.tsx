@@ -10,7 +10,14 @@ const LEGEND_ITEMS: { type: ConnectionType; label: string }[] = [
   { type: 'ghost', label: 'Ghost' },
 ];
 
-export default function Legend() {
+interface LegendProps {
+  activeTypes: Set<ConnectionType>;
+  onToggleType: (type: ConnectionType) => void;
+}
+
+export default function Legend({ activeTypes, onToggleType }: LegendProps) {
+  const hasFilter = activeTypes.size > 0;
+
   return (
     <div
       style={{
@@ -37,30 +44,50 @@ export default function Legend() {
         Connection Types
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-        {LEGEND_ITEMS.map((item) => (
-          <div key={item.type} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        {LEGEND_ITEMS.map((item) => {
+          const isActive = activeTypes.has(item.type);
+          const isDimmed = hasFilter && !isActive;
+
+          return (
             <div
+              key={item.type}
+              onClick={() => onToggleType(item.type)}
               style={{
-                width: '14px',
-                height: '14px',
-                borderRadius: item.type === 'ghost' ? '50%' : '3px',
-                backgroundColor: CONNECTION_COLORS[item.type],
-                opacity: item.type === 'ghost' ? 0.5 : 1,
-                border: item.type === 'ghost' ? `2px dashed ${CONNECTION_COLORS[item.type]}` : 'none',
-                flexShrink: 0,
-              }}
-            />
-            <span
-              style={{
-                fontFamily: 'monospace',
-                fontSize: '0.75rem',
-                color: CONNECTION_COLORS[item.type],
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                cursor: 'pointer',
+                padding: '2px 4px',
+                borderRadius: '4px',
+                background: isActive ? `${CONNECTION_COLORS[item.type]}18` : 'transparent',
+                opacity: isDimmed ? 0.35 : 1,
+                transition: 'opacity 0.2s, background 0.2s',
               }}
             >
-              {item.label}
-            </span>
-          </div>
-        ))}
+              <div
+                style={{
+                  width: '14px',
+                  height: '14px',
+                  borderRadius: item.type === 'ghost' ? '50%' : '3px',
+                  backgroundColor: CONNECTION_COLORS[item.type],
+                  opacity: item.type === 'ghost' ? 0.5 : 1,
+                  border: item.type === 'ghost' ? `2px dashed ${CONNECTION_COLORS[item.type]}` : 'none',
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  fontFamily: 'monospace',
+                  fontSize: '0.75rem',
+                  color: CONNECTION_COLORS[item.type],
+                  userSelect: 'none',
+                }}
+              >
+                {item.label}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

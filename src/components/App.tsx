@@ -6,6 +6,7 @@ import Canvas from './Canvas/Canvas';
 import LoadingState from './UI/LoadingState';
 import TitleBar from './UI/TitleBar';
 import Graph3D from './Graph/Graph3D';
+import ConstellationBg from './Canvas/ConstellationBg';
 
 export default function App() {
   const [fragments, setFragments] = useState<Fragment[]>(demoFragments);
@@ -163,11 +164,15 @@ export default function App() {
         overflow: 'hidden',
       }}
     >
+      <div style={{ opacity: mode === 'graph' ? 0.5 : 1, transition: 'opacity 0.5s ease' }}>
+        <ConstellationBg />
+      </div>
+
       {mode === 'graph' && graphData && (
         <TitleBar showBackButton={true} onBackToCanvas={handleBackToCanvas} />
       )}
 
-      <div style={{ width: '100%', height: '100%' }}>
+      <div style={{ width: '100%', height: '100%', position: 'relative', zIndex: 1 }}>
         {mode === 'canvas' && (
           <Canvas
             fragments={fragments}

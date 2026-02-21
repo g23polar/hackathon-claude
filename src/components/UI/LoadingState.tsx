@@ -39,18 +39,6 @@ export default function LoadingState() {
         gap: '2rem',
       }}
     >
-      {/* Pulsing ring */}
-      <div
-        style={{
-          width: '80px',
-          height: '80px',
-          borderRadius: '50%',
-          border: '2px solid rgba(139, 92, 246, 0.3)',
-          borderTopColor: '#7C3AED',
-          animation: 'spin 1.2s linear infinite',
-        }}
-      />
-
       <div style={{ textAlign: 'center' }}>
         <p
           style={{

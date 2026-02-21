@@ -55,6 +55,9 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
     const fg = fgRef.current;
     const scene = fg.scene();
+    const renderer = fg.renderer();
+    renderer.setClearColor(0x000000, 0);
+    scene.background = null;
 
     const ambientLight = new THREE.AmbientLight(0x404040, 2);
     scene.add(ambientLight);
@@ -193,12 +196,16 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d')!;
-      canvas.width = 1024;
+      const font = graphNode.isGhost ? 'italic 36px Georgia' : '38px monospace';
+      ctx.font = font;
+      const textWidth = ctx.measureText(graphNode.label).width;
+      const padding = 40;
+      canvas.width = Math.max(512, textWidth + padding * 2);
       canvas.height = 64;
-      ctx.font = graphNode.isGhost ? 'italic 36px Georgia' : '38px monospace';
+      ctx.font = font;
       ctx.fillStyle = isDimmed ? 'rgba(255,255,255,0.15)' : graphNode.isGhost ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.9)';
       ctx.textAlign = 'center';
-      ctx.fillText(graphNode.label, 512, 40);
+      ctx.fillText(graphNode.label, canvas.width / 2, 44);
 
       const texture = new THREE.CanvasTexture(canvas);
       const spriteMaterial = new THREE.SpriteMaterial({
@@ -209,7 +216,8 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       });
       const sprite = new THREE.Sprite(spriteMaterial);
       sprite.renderOrder = 999;
-      sprite.scale.set(120, 8, 1);
+      const spriteWidth = (canvas.width / canvas.height) * 8;
+      sprite.scale.set(spriteWidth, 8, 1);
       sprite.position.set(0, size + 8, 0);
       group.add(sprite);
 
@@ -325,7 +333,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
         onEngineStop={handleEngineStop}
         onNodeHover={handleNodeHover}
         onLinkHover={handleLinkHover}
-        backgroundColor="#0a0a0a"
+        backgroundColor="rgba(0,0,0,0)"
         showNavInfo={false}
         cooldownTime={4000}
         d3VelocityDecay={0.6}

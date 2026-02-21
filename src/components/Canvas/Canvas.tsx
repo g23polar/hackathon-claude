@@ -4,7 +4,7 @@ import FragmentCard from './FragmentCard';
 import CreateFragmentModal from './CreateFragmentModal';
 import AnalyzeButton from './AnalyzeButton';
 import LibraryDrawer from './LibraryDrawer';
-import ConstellationBg from './ConstellationBg';
+
 
 interface CanvasProps {
   fragments: Fragment[];
@@ -127,10 +127,9 @@ export default function Canvas({
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
-        background: '#0a0a0a',
+        background: 'transparent',
       }}
     >
-      <ConstellationBg />
       <div
         style={{
           position: 'relative',
