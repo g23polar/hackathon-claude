@@ -42,27 +42,34 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [openFragmentIds, setOpenFragmentIds] = useState<Set<string>>(new Set());
 
+  // Add ambient lighting and initial camera animation
   useEffect(() => {
     if (!fgRef.current) return;
 
     const fg = fgRef.current;
     const scene = fg.scene();
 
+    // Add ambient light for softer node rendering
     const ambientLight = new THREE.AmbientLight(0x404040, 2);
     scene.add(ambientLight);
 
+    // Add a subtle point light
     const pointLight = new THREE.PointLight(0x7C3AED, 1, 500);
     pointLight.position.set(100, 100, 100);
     scene.add(pointLight);
 
+    // Second light for depth
     const pointLight2 = new THREE.PointLight(0x3B82F6, 0.5, 400);
     pointLight2.position.set(-80, -60, 80);
     scene.add(pointLight2);
 
+    // Add fog for depth perception
     scene.fog = new THREE.FogExp2(0x0a0a0a, 0.003);
 
+    // Configure force simulation
     fg.d3Force('charge')?.strength(-120);
 
+    // Initial dolly-in: start far, animate to default
     fg.cameraPosition({ x: 0, y: 0, z: 500 });
     setTimeout(() => {
       fg.cameraPosition({ x: 0, y: 0, z: 250 }, { x: 0, y: 0, z: 0 }, 2000);
@@ -76,13 +83,16 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
     };
   }, []);
 
+  // Build graph data for react-force-graph-3d
   const { nodes, links } = useMemo(() => {
+    // Count connections per node
     const connectionCounts: Record<string, number> = {};
     for (const conn of graphData.connections) {
       connectionCounts[conn.source] = (connectionCounts[conn.source] || 0) + 1;
       connectionCounts[conn.target] = (connectionCounts[conn.target] || 0) + 1;
     }
 
+    // Also count ghost connections
     for (const ghost of graphData.ghosts) {
       connectionCounts[ghost.id] = (connectionCounts[ghost.id] || 0) + ghost.connected_to.length;
       for (const fragId of ghost.connected_to) {
@@ -90,10 +100,12 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       }
     }
 
+    // Build summary lookup
     const summaryMap = new Map(
       (graphData.summaries || []).map((s) => [s.id, s.summary])
     );
 
+    // Build theme color lookup
     const themeColorMap = new Map<string, string>();
     for (const theme of graphData.themes || []) {
       for (const fid of theme.fragment_ids) {
@@ -101,6 +113,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       }
     }
 
+    // Fragment nodes
     const fragmentNodes: GraphNode[] = fragments.map((f) => ({
       id: f.id,
       label: summaryMap.get(f.id) || f.text.split(' ').slice(0, 12).join(' ') + '…',
@@ -109,6 +122,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       themeColor: themeColorMap.get(f.id) || '#3B82F6',
     }));
 
+    // Ghost nodes
     const ghostNodes: GraphNode[] = graphData.ghosts.map((g) => ({
       id: g.id,
       label: g.label,
@@ -117,6 +131,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       themeColor: '#6B7280',
     }));
 
+    // Connection links
     const connectionLinks: GraphLink[] = graphData.connections.map((conn) => ({
       source: conn.source,
       target: conn.target,
@@ -125,6 +140,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       description: conn.description,
     }));
 
+    // Ghost connection links
     const ghostLinks: GraphLink[] = graphData.ghosts.flatMap((ghost) =>
       ghost.connected_to.map((fragId) => ({
         source: ghost.id,
@@ -141,6 +157,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
     };
   }, [graphData, fragments]);
 
+  // Custom node rendering — ghost nodes are octahedrons
   const nodeThreeObject = useCallback(
     (node: any) => {
       const graphNode = node as GraphNode;
@@ -159,6 +176,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
 
       const group = new THREE.Group();
 
+      // Geometry: octahedron for ghosts, sphere for fragments
       const geometry = graphNode.isGhost
         ? new THREE.OctahedronGeometry(size, 0)
         : new THREE.SphereGeometry(size, 24, 24);
@@ -174,6 +192,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       const mesh = new THREE.Mesh(geometry, material);
       group.add(mesh);
 
+      // Glow sphere
       const glowGeom = new THREE.SphereGeometry(size * 2, 16, 16);
       const glowMat = new THREE.MeshBasicMaterial({
         color: graphNode.themeColor,
@@ -182,6 +201,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       });
       group.add(new THREE.Mesh(glowGeom, glowMat));
 
+      // Label sprite
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d')!;
       canvas.width = 1024;
@@ -207,6 +227,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
     [focusedNodeId, links]
   );
 
+  // Link color by type
   const linkColor = useCallback(
     (link: any) => {
       const graphLink = link as GraphLink;
@@ -222,10 +243,12 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
     [focusedNodeId]
   );
 
+  // Link width by strength
   const linkWidth = useCallback((link: any) => {
     return (link as GraphLink).strength * 3 + 0.5;
   }, []);
 
+  // Node click -> focus + toggle open fragment
   const handleNodeClick = useCallback(
     (node: any) => {
       const graphNode = node as GraphNode;
@@ -322,6 +345,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
         d3VelocityDecay={0.6}
       />
 
+      {/* ═══ FIELD READING OVERLAY ═══ */}
       {(graphData.field_reading || graphData.emergent_theme) && (
         <div
           style={{
@@ -370,6 +394,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       {hoverInfo && <Tooltip info={{ ...hoverInfo, position: mousePos }} />}
       <Legend />
 
+      {/* Theme legend */}
       {graphData.themes && graphData.themes.length > 0 && (
         <div
           style={{
@@ -422,6 +447,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
         </div>
       )}
 
+      {/* Open fragment cards on click */}
       {openFragmentIds.size > 0 && (
         <div
           style={{

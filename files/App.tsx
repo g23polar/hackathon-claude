@@ -48,6 +48,7 @@ export default function App() {
 
   const handleBackToCanvas = useCallback(() => {
     setMode('canvas');
+    // Don't clear graphData — enables re-analyze comparison
   }, []);
 
   const handleAnalyze = useCallback(async () => {
@@ -65,19 +66,24 @@ export default function App() {
     }
   }, [fragments, selectedIds]);
 
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input/textarea
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
+      // Cmd/Ctrl+A — select all (canvas mode only)
       if ((e.metaKey || e.ctrlKey) && e.key === 'a' && mode === 'canvas') {
         e.preventDefault();
         handleSelectAll();
       }
+      // Cmd/Ctrl+Enter — analyze
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && mode === 'canvas' && selectedIds.size >= 2) {
         e.preventDefault();
         handleAnalyze();
       }
+      // Escape — back to canvas
       if (e.key === 'Escape' && mode === 'graph') {
         e.preventDefault();
         handleBackToCanvas();
@@ -99,10 +105,12 @@ export default function App() {
         overflow: 'hidden',
       }}
     >
+      {/* TitleBar overlay on graph mode */}
       {mode === 'graph' && graphData && (
         <TitleBar showBackButton={true} onBackToCanvas={handleBackToCanvas} />
       )}
 
+      {/* Content — no opacity transition for graph mode (let dolly-in be the transition) */}
       <div style={{ width: '100%', height: '100%' }}>
         {mode === 'canvas' && (
           <Canvas
