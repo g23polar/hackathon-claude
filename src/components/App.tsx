@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-import { useState, useCallback, useEffect } from 'react';
-import type { Fragment, GraphData, AppMode } from '../types';
-=======
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Fragment, GraphData, AppMode, SecondaryAnalysis } from '../types';
->>>>>>> 173718f564f24e7c299a56b01420a2aa76eacad3
 import { demoFragments } from '../data/demo-fragments';
 import { analyzeFragments, analyzeSecondary } from '../api/claude';
 import Canvas from './Canvas/Canvas';
@@ -17,8 +12,6 @@ export default function App() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<AppMode>('canvas');
   const [graphData, setGraphData] = useState<GraphData | null>(null);
-<<<<<<< HEAD
-=======
   const [secondaryAnalysis, setSecondaryAnalysis] = useState<SecondaryAnalysis | null>(null);
   const [secondaryLoading, setSecondaryLoading] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
@@ -42,10 +35,13 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [mode]);
->>>>>>> 173718f564f24e7c299a56b01420a2aa76eacad3
 
   const handleAddFragment = useCallback((fragment: Fragment) => {
     setFragments((prev) => [...prev, fragment]);
+  }, []);
+
+  const handleAddMultiple = useCallback((newFragments: Fragment[]) => {
+    setFragments((prev) => [...prev, ...newFragments]);
   }, []);
 
   const handleDeleteFragment = useCallback((id: string) => {
@@ -79,12 +75,9 @@ export default function App() {
 
   const handleBackToCanvas = useCallback(() => {
     setMode('canvas');
-<<<<<<< HEAD
-=======
     setGraphData(null);
     setSecondaryAnalysis(null);
     setSecondaryLoading(false);
->>>>>>> 173718f564f24e7c299a56b01420a2aa76eacad3
   }, []);
 
   const handleAnalyze = useCallback(async () => {
@@ -104,7 +97,6 @@ export default function App() {
     }
   }, [fragments, selectedIds]);
 
-<<<<<<< HEAD
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
@@ -127,7 +119,7 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [mode, selectedIds, handleSelectAll, handleAnalyze, handleBackToCanvas]);
-=======
+
   // Re-run Professor Alan whenever the graph node selection changes
   const handleNodeSelectionChange = useCallback(
     (selectedNodeIds: string[]) => {
@@ -158,7 +150,6 @@ export default function App() {
     },
     [fragments, graphData]
   );
->>>>>>> 173718f564f24e7c299a56b01420a2aa76eacad3
 
   return (
     <div
@@ -184,6 +175,7 @@ export default function App() {
             onSelectAll={handleSelectAll}
             onUnselectAll={handleUnselectAll}
             onAddFragment={handleAddFragment}
+            onAddMultiple={handleAddMultiple}
             onDeleteFragment={handleDeleteFragment}
             onAnalyze={handleAnalyze}
           />

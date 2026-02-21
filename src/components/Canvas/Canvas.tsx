@@ -3,6 +3,7 @@ import type { Fragment } from '../../types';
 import FragmentCard from './FragmentCard';
 import CreateFragmentModal from './CreateFragmentModal';
 import AnalyzeButton from './AnalyzeButton';
+import LibraryDrawer from './LibraryDrawer';
 
 interface CanvasProps {
   fragments: Fragment[];
@@ -11,6 +12,7 @@ interface CanvasProps {
   onSelectAll: () => void;
   onUnselectAll: () => void;
   onAddFragment: (fragment: Fragment) => void;
+  onAddMultiple: (fragments: Fragment[]) => void;
   onDeleteFragment: (id: string) => void;
   onAnalyze: () => void;
 }
@@ -22,10 +24,12 @@ export default function Canvas({
   onSelectAll,
   onUnselectAll,
   onAddFragment,
+  onAddMultiple,
   onDeleteFragment,
   onAnalyze,
 }: CanvasProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [quickText, setQuickText] = useState('');
   const quickInputRef = useRef<HTMLInputElement>(null);
 
@@ -141,6 +145,21 @@ export default function Canvas({
           >
             + Long Fragment
           </button>
+          <button
+            onClick={() => setIsLibraryOpen(true)}
+            style={{
+              padding: '0.5rem 1rem',
+              background: 'rgba(124, 58, 237, 0.15)',
+              border: '1px solid rgba(124, 58, 237, 0.3)',
+              borderRadius: '6px',
+              color: '#A855F7',
+              cursor: 'pointer',
+              fontFamily: 'monospace',
+              fontSize: '0.85rem',
+            }}
+          >
+            📚 Library
+          </button>
           <AnalyzeButton selectedCount={selectedIds.size} onAnalyze={onAnalyze} />
         </div>
       </div>
@@ -250,6 +269,13 @@ export default function Canvas({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onAdd={onAddFragment}
+      />
+
+      <LibraryDrawer
+        isOpen={isLibraryOpen}
+        onClose={() => setIsLibraryOpen(false)}
+        onAddFragment={onAddFragment}
+        onAddMultiple={onAddMultiple}
       />
     </div>
   );
