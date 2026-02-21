@@ -40,6 +40,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
   } | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
+  const [openFragmentIds, setOpenFragmentIds] = useState<Set<string>>(new Set());
 
   // Add ambient lighting and initial camera animation
   useEffect(() => {
@@ -63,8 +64,6 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
 
     // Configure force simulation to settle quickly
     fg.d3Force('charge')?.strength(-120);
-    fg.d3VelocityDecay(0.6);
-    fg.cooldownTime(4000);
 
     // Initial dolly-in: start far, animate to default
     fg.cameraPosition({ x: 0, y: 0, z: 500 });
@@ -236,18 +235,30 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
     return (link as GraphLink).type === 'ghost' ? [2, 2] : undefined;
   }, []);
 
-  // Node click -> focus
+  // Node click -> focus + toggle open fragment
   const handleNodeClick = useCallback(
     (node: any) => {
       const graphNode = node as GraphNode;
-      if (focusedNodeId === graphNode.id) {
-        setFocusedNodeId(null);
-        return;
+
+      // Toggle focus
+      const newFocused = focusedNodeId === graphNode.id ? null : graphNode.id;
+      setFocusedNodeId(newFocused);
+
+      // Toggle fragment panel (only for non-ghost nodes)
+      if (!graphNode.isGhost) {
+        setOpenFragmentIds((prev) => {
+          const next = new Set(prev);
+          if (next.has(graphNode.id)) {
+            next.delete(graphNode.id);
+          } else {
+            next.add(graphNode.id);
+          }
+          return next;
+        });
       }
-      setFocusedNodeId(graphNode.id);
 
       // Camera zoom to node
-      if (fgRef.current && node.x !== undefined) {
+      if (newFocused && fgRef.current && node.x !== undefined) {
         const distance = 120;
         const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
         fgRef.current.cameraPosition(
@@ -384,6 +395,99 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
               </div>
             ))}
           </div>
+        </div>
+      )}
+      {/* Open fragment cards */}
+      {openFragmentIds.size > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '4rem',
+            right: '1.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem',
+            maxHeight: 'calc(100vh - 10rem)',
+            overflowY: 'auto',
+            width: '320px',
+          }}
+        >
+          {fragments
+            .filter((f) => openFragmentIds.has(f.id))
+            .map((f) => {
+              // Find theme color for this fragment
+              const theme = (graphData.themes || []).find((t) =>
+                t.fragment_ids.includes(f.id)
+              );
+              const color = theme?.color || '#3B82F6';
+              const summary = (graphData.summaries || []).find((s) => s.id === f.id);
+
+              return (
+                <div
+                  key={f.id}
+                  style={{
+                    background: 'rgba(15, 15, 15, 0.95)',
+                    border: `1px solid ${color}40`,
+                    borderLeft: `3px solid ${color}`,
+                    borderRadius: '8px',
+                    padding: '0.75rem 1rem',
+                    backdropFilter: 'blur(8px)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      marginBottom: '0.5rem',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: 'monospace',
+                        fontSize: '0.7rem',
+                        color: color,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                      }}
+                    >
+                      {summary?.summary || 'Fragment'}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setOpenFragmentIds((prev) => {
+                          const next = new Set(prev);
+                          next.delete(f.id);
+                          return next;
+                        })
+                      }
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#525252',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        lineHeight: 1,
+                        padding: '0 0 0 0.5rem',
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <p
+                    style={{
+                      fontFamily: "'Georgia', serif",
+                      fontSize: '0.85rem',
+                      color: '#d4d4d4',
+                      lineHeight: 1.6,
+                      margin: 0,
+                    }}
+                  >
+                    {f.text}
+                  </p>
+                </div>
+              );
+            })}
         </div>
       )}
     </div>
