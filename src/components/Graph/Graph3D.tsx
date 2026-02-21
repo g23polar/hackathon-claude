@@ -1,7 +1,7 @@
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import ForceGraph3D from 'react-force-graph-3d';
-import type { GraphData, Fragment, Connection, Ghost, ConnectionType } from '../../types';
-import { CONNECTION_COLORS } from '../../types';
+import type { GraphData, Fragment, Connection, Ghost, ConnectionType, Theme } from '../../types';
+import { CONNECTION_COLORS, THEME_PALETTE } from '../../types';
 import * as THREE from 'three';
 import Tooltip from './Tooltip';
 import Legend from './Legend';
@@ -17,6 +17,7 @@ interface GraphNode {
   label: string;
   isGhost: boolean;
   connectionCount: number;
+  themeColor: string;
   x?: number;
   y?: number;
   z?: number;
@@ -37,6 +38,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
     data: any;
     position: { x: number; y: number };
   } | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
 
   // Add ambient lighting and initial camera animation
@@ -58,6 +60,11 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
 
     // Add fog for depth perception
     scene.fog = new THREE.FogExp2(0x0a0a0a, 0.003);
+
+    // Configure force simulation to settle quickly
+    fg.d3Force('charge')?.strength(-120);
+    fg.d3VelocityDecay(0.6);
+    fg.cooldownTime(4000);
 
     // Initial dolly-in: start far, animate to default
     fg.cameraPosition({ x: 0, y: 0, z: 500 });
@@ -89,12 +96,26 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       }
     }
 
+    // Build summary lookup
+    const summaryMap = new Map(
+      (graphData.summaries || []).map((s) => [s.id, s.summary])
+    );
+
+    // Build theme color lookup
+    const themeColorMap = new Map<string, string>();
+    for (const theme of graphData.themes || []) {
+      for (const fid of theme.fragment_ids) {
+        themeColorMap.set(fid, theme.color);
+      }
+    }
+
     // Fragment nodes
     const fragmentNodes: GraphNode[] = fragments.map((f) => ({
       id: f.id,
-      label: f.text.length > 60 ? f.text.slice(0, 60) + '...' : f.text,
+      label: summaryMap.get(f.id) || f.text.split(' ').slice(0, 12).join(' ') + '…',
       isGhost: false,
       connectionCount: connectionCounts[f.id] || 0,
+      themeColor: themeColorMap.get(f.id) || '#3B82F6',
     }));
 
     // Ghost nodes
@@ -103,6 +124,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       label: g.label,
       isGhost: true,
       connectionCount: connectionCounts[g.id] || 0,
+      themeColor: '#6B7280',
     }));
 
     // Connection links
@@ -153,10 +175,10 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       // Sphere
       const geometry = new THREE.SphereGeometry(size, 16, 16);
       const material = new THREE.MeshPhongMaterial({
-        color: graphNode.isGhost ? '#6B7280' : '#3B82F6',
+        color: graphNode.themeColor,
         transparent: true,
         opacity: isDimmed ? 0.15 : graphNode.isGhost ? 0.4 : 0.85,
-        emissive: isFocused ? '#3B82F6' : '#000000',
+        emissive: isFocused ? graphNode.themeColor : '#000000',
         emissiveIntensity: isFocused ? 0.3 : 0,
       });
       const sphere = new THREE.Mesh(geometry, material);
@@ -165,14 +187,12 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       // Label sprite
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d')!;
-      canvas.width = 512;
+      canvas.width = 1024;
       canvas.height = 64;
       ctx.font = '24px monospace';
       ctx.fillStyle = isDimmed ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.9)';
       ctx.textAlign = 'center';
-
-      const labelText = graphNode.label;
-      ctx.fillText(labelText, 256, 40);
+      ctx.fillText(graphNode.label, 512, 40);
 
       const texture = new THREE.CanvasTexture(canvas);
       const spriteMaterial = new THREE.SpriteMaterial({
@@ -181,7 +201,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
         depthWrite: false,
       });
       const sprite = new THREE.Sprite(spriteMaterial);
-      sprite.scale.set(60, 8, 1);
+      sprite.scale.set(80, 5, 1);
       sprite.position.set(0, size + 6, 0);
       group.add(sprite);
 
@@ -240,14 +260,39 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
     [focusedNodeId]
   );
 
+  // Pin node in place after dragging
+  const handleNodeDragEnd = useCallback((node: any) => {
+    node.fx = node.x;
+    node.fy = node.y;
+    node.fz = node.z;
+  }, []);
+
+  // When simulation stops, pin all nodes so nothing drifts
+  const handleEngineStop = useCallback(() => {
+    if (!fgRef.current) return;
+    const gd = fgRef.current.graphData();
+    if (gd?.nodes) {
+      for (const node of gd.nodes as any[]) {
+        node.fx = node.x;
+        node.fy = node.y;
+        node.fz = node.z;
+      }
+    }
+  }, []);
+
+  // Track mouse position for tooltip
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    setMousePos({ x: e.clientX, y: e.clientY });
+  }, []);
+
   // Hover handlers
   const handleNodeHover = useCallback((node: any, prevNode: any) => {
     if (node) {
-      setHoverInfo({
+      setHoverInfo((prev) => ({
         type: 'node',
         data: node,
-        position: { x: (node as any).__screenX ?? 0, y: (node as any).__screenY ?? 0 },
-      });
+        position: prev?.position ?? { x: 0, y: 0 },
+      }));
     } else {
       setHoverInfo(null);
     }
@@ -255,18 +300,18 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
 
   const handleLinkHover = useCallback((link: any, prevLink: any) => {
     if (link) {
-      setHoverInfo({
+      setHoverInfo((prev) => ({
         type: 'link',
         data: link,
-        position: { x: 0, y: 0 },
-      });
+        position: prev?.position ?? { x: 0, y: 0 },
+      }));
     } else {
       setHoverInfo(null);
     }
   }, []);
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div style={{ width: '100%', height: '100%', position: 'relative' }} onMouseMove={handleMouseMove}>
       <ForceGraph3D
         ref={fgRef}
         graphData={{ nodes: nodes as any, links: links as any }}
@@ -278,13 +323,69 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
         linkDirectionalParticleWidth={1}
 
         onNodeClick={handleNodeClick}
+        onNodeDragEnd={handleNodeDragEnd}
+        onEngineStop={handleEngineStop}
         onNodeHover={handleNodeHover}
         onLinkHover={handleLinkHover}
         backgroundColor="#0a0a0a"
         showNavInfo={false}
+        cooldownTime={4000}
+        d3VelocityDecay={0.6}
       />
-      {hoverInfo && <Tooltip info={hoverInfo} />}
+      {hoverInfo && <Tooltip info={{ ...hoverInfo, position: mousePos }} />}
       <Legend />
+      {/* Theme legend */}
+      {graphData.themes && graphData.themes.length > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '1.5rem',
+            right: '1.5rem',
+            background: 'rgba(15, 15, 15, 0.9)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '8px',
+            padding: '0.75rem 1rem',
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          <div
+            style={{
+              fontFamily: 'monospace',
+              fontSize: '0.7rem',
+              color: '#525252',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              marginBottom: '0.5rem',
+            }}
+          >
+            Themes
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            {graphData.themes.map((theme) => (
+              <div key={theme.name} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div
+                  style={{
+                    width: '14px',
+                    height: '14px',
+                    borderRadius: '50%',
+                    backgroundColor: theme.color,
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  style={{
+                    fontFamily: 'monospace',
+                    fontSize: '0.75rem',
+                    color: theme.color,
+                  }}
+                >
+                  {theme.name}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

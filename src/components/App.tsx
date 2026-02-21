@@ -7,8 +7,7 @@ import LoadingState from './UI/LoadingState';
 import TitleBar from './UI/TitleBar';
 import Graph3D from './Graph/Graph3D';
 
-// Pre-select all demo fragments for one-click demo flow
-const initialSelectedIds = new Set(demoFragments.map((f) => f.id));
+const initialSelectedIds = new Set<string>();
 
 export default function App() {
   const [fragments, setFragments] = useState<Fragment[]>(demoFragments);
@@ -51,6 +50,14 @@ export default function App() {
       }
       return next;
     });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    setSelectedIds(new Set(fragments.map((f) => f.id)));
+  }, [fragments]);
+
+  const handleUnselectAll = useCallback(() => {
+    setSelectedIds(new Set());
   }, []);
 
   const handleBackToCanvas = useCallback(() => {
@@ -103,6 +110,8 @@ export default function App() {
             fragments={fragments}
             selectedIds={selectedIds}
             onToggleSelect={handleToggleSelect}
+            onSelectAll={handleSelectAll}
+            onUnselectAll={handleUnselectAll}
             onAddFragment={handleAddFragment}
             onAnalyze={handleAnalyze}
           />
