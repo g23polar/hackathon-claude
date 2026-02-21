@@ -4,7 +4,13 @@ import { SYSTEM_PROMPT, buildUserPrompt } from '../prompts/semantic-analysis.js'
 
 export const analyzeRoute = Router();
 
-const anthropic = new Anthropic();
+let anthropic: Anthropic;
+function getClient() {
+  if (!anthropic) {
+    anthropic = new Anthropic();
+  }
+  return anthropic;
+}
 
 interface AnalyzeRequest {
   fragments: Array<{ id: string; text: string }>;
@@ -27,7 +33,7 @@ analyzeRoute.post('/analyze', async (req, res) => {
       }
     }
 
-    const message = await anthropic.messages.create({
+    const message = await getClient().messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
@@ -62,6 +68,12 @@ analyzeRoute.post('/analyze', async (req, res) => {
     }
     if (!data.ghosts) {
       data.ghosts = [];
+    }
+    if (!data.summaries) {
+      data.summaries = [];
+    }
+    if (!data.themes) {
+      data.themes = [];
     }
 
     res.json(data);

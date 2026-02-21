@@ -51,8 +51,25 @@ You identify 6 types of connections:
       "description": "Why this ghost exists in the semantic space",
       "connected_to": ["fragment_id_1", "fragment_id_2"]
     }
+  ],
+  "summaries": [
+    {
+      "id": "fragment_id",
+      "summary": "A evocative 10-15 word summary capturing the fragment's core idea"
+    }
+  ],
+  "themes": [
+    {
+      "name": "Short theme name (2-4 words)",
+      "color": "A hex color from the palette below",
+      "fragment_ids": ["fragment_id_1", "fragment_id_2"]
+    }
   ]
-}`;
+}
+
+The "summaries" array MUST contain one entry for every input fragment. Each summary should be a punchy, evocative phrase (10-15 words max) that captures the essence of the fragment — not a dry description, but a distilled headline.
+
+The "themes" array clusters fragments into 2-5 thematic groups based on their semantic content. Every fragment must belong to exactly one theme. Use these colors in order: #F472B6 (pink), #38BDF8 (sky), #FB923C (orange), #4ADE80 (green), #C084FC (violet), #FACC15 (yellow), #2DD4BF (teal), #F87171 (red). Theme names should be evocative, not generic — "Structural Philosophy" not "Food".`;
 
 export function buildUserPrompt(fragments: { id: string; text: string }[]): string {
   const fragmentList = fragments

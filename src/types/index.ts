@@ -26,10 +26,34 @@ export interface Ghost {
   connected_to: string[];
 }
 
+export interface FragmentSummary {
+  id: string;
+  summary: string;
+}
+
+export interface Theme {
+  name: string;
+  color: string;
+  fragment_ids: string[];
+}
+
 export interface GraphData {
   connections: Connection[];
   ghosts: Ghost[];
+  summaries: FragmentSummary[];
+  themes: Theme[];
 }
+
+export const THEME_PALETTE = [
+  '#F472B6', // pink
+  '#38BDF8', // sky
+  '#FB923C', // orange
+  '#4ADE80', // green
+  '#C084FC', // violet
+  '#FACC15', // yellow
+  '#2DD4BF', // teal
+  '#F87171', // red
+];
 
 export type AppMode = 'canvas' | 'loading' | 'graph';
 

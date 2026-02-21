@@ -41,18 +41,20 @@ export default function Legend() {
           <div key={item.type} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <div
               style={{
-                width: '12px',
-                height: '3px',
-                borderRadius: '1px',
-                background: CONNECTION_COLORS[item.type],
-                borderStyle: item.type === 'ghost' ? 'dashed' : 'solid',
+                width: '14px',
+                height: '14px',
+                borderRadius: item.type === 'ghost' ? '50%' : '3px',
+                backgroundColor: CONNECTION_COLORS[item.type],
+                opacity: item.type === 'ghost' ? 0.5 : 1,
+                border: item.type === 'ghost' ? `2px dashed ${CONNECTION_COLORS[item.type]}` : 'none',
+                flexShrink: 0,
               }}
             />
             <span
               style={{
                 fontFamily: 'monospace',
                 fontSize: '0.75rem',
-                color: '#a3a3a3',
+                color: CONNECTION_COLORS[item.type],
               }}
             >
               {item.label}
