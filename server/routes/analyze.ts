@@ -12,8 +12,17 @@ function getClient() {
   return anthropic;
 }
 
+interface FragmentInput {
+  id: string;
+  text: string;
+  image?: {
+    base64: string;
+    mimeType: string;
+  };
+}
+
 interface AnalyzeRequest {
-  fragments: Array<{ id: string; text: string }>;
+  fragments: FragmentInput[];
 }
 
 analyzeRoute.post('/analyze', async (req, res) => {
@@ -32,6 +41,39 @@ analyzeRoute.post('/analyze', async (req, res) => {
       }
     }
 
+    // Build the user message content — mix of text and images
+    const userContent: any[] = [];
+
+    // Add images first so Claude sees them before the text prompt
+    for (const f of fragments) {
+      if (f.image) {
+        userContent.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: f.image.mimeType,
+            data: f.image.base64,
+          },
+        });
+        // Label the image
+        userContent.push({
+          type: 'text',
+          text: `[The image above is fragment ${f.id}: "${f.text}"]`,
+        });
+      }
+    }
+
+    // Add the main text prompt
+    const promptFragments = fragments.map((f) => ({
+      id: f.id,
+      text: f.text,
+      hasImage: !!f.image,
+    }));
+    userContent.push({
+      type: 'text',
+      text: buildUserPrompt(promptFragments),
+    });
+
     const message = await getClient().messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
@@ -39,7 +81,7 @@ analyzeRoute.post('/analyze', async (req, res) => {
       messages: [
         {
           role: 'user',
-          content: buildUserPrompt(fragments),
+          content: userContent,
         },
       ],
     });
