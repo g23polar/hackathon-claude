@@ -280,16 +280,12 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
 
   // When simulation stops, pin all nodes so nothing drifts
   const handleEngineStop = useCallback(() => {
-    if (!fgRef.current) return;
-    const gd = fgRef.current.graphData();
-    if (gd?.nodes) {
-      for (const node of gd.nodes as any[]) {
-        node.fx = node.x;
-        node.fy = node.y;
-        node.fz = node.z;
-      }
+    for (const node of nodes as any[]) {
+      node.fx = node.x;
+      node.fy = node.y;
+      node.fz = node.z;
     }
-  }, []);
+  }, [nodes]);
 
   // Track mouse position for tooltip
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
