@@ -1,15 +1,19 @@
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import ForceGraph3D from 'react-force-graph-3d';
-import type { GraphData, Fragment, ConnectionType } from '../../types';
-import { CONNECTION_COLORS } from '../../types';
+import type { GraphData, Fragment, Connection, Ghost, ConnectionType, Theme, SecondaryAnalysis } from '../../types';
+import { CONNECTION_COLORS, THEME_PALETTE } from '../../types';
 import * as THREE from 'three';
 import Tooltip from './Tooltip';
 import Legend from './Legend';
+import SidePanel from './SidePanel';
 
 interface Graph3DProps {
   graphData: GraphData;
   fragments: Fragment[];
   onBackToCanvas: () => void;
+  onNodeSelectionChange: (selectedNodeIds: string[]) => void;
+  secondaryAnalysis: SecondaryAnalysis | null;
+  secondaryLoading: boolean;
 }
 
 interface GraphNode {
@@ -31,7 +35,7 @@ interface GraphLink {
   description: string;
 }
 
-export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3DProps) {
+export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSelectionChange, secondaryAnalysis, secondaryLoading }: Graph3DProps) {
   const fgRef = useRef<any>(null);
   const [hoverInfo, setHoverInfo] = useState<{
     type: 'node' | 'link';
@@ -41,6 +45,10 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [openFragmentIds, setOpenFragmentIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    onNodeSelectionChange(Array.from(openFragmentIds));
+  }, [openFragmentIds, onNodeSelectionChange]);
 
   useEffect(() => {
     if (!fgRef.current) return;
@@ -61,11 +69,12 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
 
     scene.fog = new THREE.FogExp2(0x0a0a0a, 0.003);
 
-    fg.d3Force('charge')?.strength(-120);
+    fg.d3Force('charge')?.strength(-350).distanceMax(400);
+    fg.d3Force('link')?.distance(80);
 
     fg.cameraPosition({ x: 0, y: 0, z: 500 });
     setTimeout(() => {
-      fg.cameraPosition({ x: 0, y: 0, z: 250 }, { x: 0, y: 0, z: 0 }, 2000);
+      fg.cameraPosition({ x: 0, y: 0, z: 350 }, { x: 0, y: 0, z: 0 }, 2000);
     }, 100);
 
     return () => {
@@ -233,6 +242,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       const newFocused = focusedNodeId === graphNode.id ? null : graphNode.id;
       setFocusedNodeId(newFocused);
 
+      // Toggle fragment in/out of selection (only for non-ghost nodes)
       if (!graphNode.isGhost) {
         setOpenFragmentIds((prev) => {
           const next = new Set(prev);
@@ -245,15 +255,6 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
         });
       }
 
-      if (newFocused && fgRef.current && node.x !== undefined) {
-        const distance = 120;
-        const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
-        fgRef.current.cameraPosition(
-          { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
-          { x: node.x, y: node.y, z: node.z },
-          1000
-        );
-      }
     },
     [focusedNodeId]
   );
@@ -271,6 +272,12 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
       node.fz = node.z;
     }
   }, [nodes]);
+
+  const handleRecenter = useCallback(() => {
+    if (!fgRef.current) return;
+    fgRef.current.zoomToFit(600, 40);
+    setFocusedNodeId(null);
+  }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     setMousePos({ x: e.clientX, y: e.clientY });
@@ -369,7 +376,43 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
 
       {hoverInfo && <Tooltip info={{ ...hoverInfo, position: mousePos }} />}
       <Legend />
-
+      <button
+        onClick={handleRecenter}
+        style={{
+          position: 'absolute',
+          bottom: '13.5rem',
+          left: '1.5rem',
+          background: 'rgba(15, 15, 15, 0.9)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '8px',
+          padding: '0.5rem 0.75rem',
+          backdropFilter: 'blur(8px)',
+          cursor: 'pointer',
+          fontFamily: 'monospace',
+          fontSize: '0.7rem',
+          color: '#a3a3a3',
+          letterSpacing: '0.05em',
+          transition: 'color 0.2s, border-color 0.2s',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = '#e5e5e5';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = '#a3a3a3';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        }}
+      >
+        Recenter
+      </button>
+      {openFragmentIds.size > 0 && (
+        <SidePanel
+          secondaryAnalysis={secondaryAnalysis}
+          loading={secondaryLoading}
+          fragments={fragments}
+        />
+      )}
+      {/* Theme legend */}
       {graphData.themes && graphData.themes.length > 0 && (
         <div
           style={{
@@ -421,6 +464,8 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3
           </div>
         </div>
       )}
+
+
 
       {openFragmentIds.size > 0 && (
         <div

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { analyzeRoute } from './routes/analyze.js';
+import { analyzeSecondaryRoute } from './routes/analyze-secondary.js';
 
 dotenv.config();
 
@@ -13,6 +14,7 @@ app.use(express.json());
 
 // API routes
 app.use('/api', analyzeRoute);
+app.use('/api', analyzeSecondaryRoute);
 
 // Health check
 app.get('/api/health', (_req, res) => {
