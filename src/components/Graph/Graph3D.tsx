@@ -244,10 +244,13 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       // Toggle fragment in/out of selection (only for non-ghost nodes)
       if (!graphNode.isGhost) {
         setOpenFragmentIds((prev) => {
-          if (prev.has(graphNode.id) && prev.size === 1) {
-            return new Set();
+          const next = new Set(prev);
+          if (next.has(graphNode.id)) {
+            next.delete(graphNode.id);
+          } else {
+            next.add(graphNode.id);
           }
-          return new Set([graphNode.id]);
+          return next;
         });
       }
 
