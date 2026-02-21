@@ -27,6 +27,7 @@ export default function FragmentCard({ fragment, isSelected, onToggleSelect, onD
         position: 'relative',
       }}
     >
+      {/* Selection indicator */}
       {isSelected && (
         <div
           style={{
@@ -42,6 +43,7 @@ export default function FragmentCard({ fragment, isSelected, onToggleSelect, onD
         />
       )}
 
+      {/* Delete button — visible on hover */}
       {isHovered && !isSelected && (
         <button
           onClick={(e) => {
@@ -65,6 +67,7 @@ export default function FragmentCard({ fragment, isSelected, onToggleSelect, onD
             fontSize: '12px',
             lineHeight: 1,
             padding: 0,
+            transition: 'all 0.15s ease',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
@@ -87,6 +90,7 @@ export default function FragmentCard({ fragment, isSelected, onToggleSelect, onD
           fontSize: '0.95rem',
           lineHeight: 1.6,
           color: isSelected ? '#e5e5e5' : '#a3a3a3',
+          transition: 'color 0.2s ease',
           margin: 0,
           paddingRight: '1rem',
         }}

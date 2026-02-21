@@ -47,14 +47,14 @@ export interface GraphData {
 }
 
 export const THEME_PALETTE = [
-  '#F472B6',
-  '#38BDF8',
-  '#FB923C',
-  '#4ADE80',
-  '#C084FC',
-  '#FACC15',
-  '#2DD4BF',
-  '#F87171',
+  '#F472B6', // pink
+  '#38BDF8', // sky
+  '#FB923C', // orange
+  '#4ADE80', // green
+  '#C084FC', // violet
+  '#FACC15', // yellow
+  '#2DD4BF', // teal
+  '#F87171', // red
 ];
 
 export type AppMode = 'canvas' | 'loading' | 'graph';
