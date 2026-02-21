@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import Tooltip from './Tooltip';
 import Legend from './Legend';
 import SidePanel from './SidePanel';
+import Graph2D from './Graph2D';
 
 interface Graph3DProps {
   graphData: GraphData;
@@ -45,6 +46,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [openFragmentIds, setOpenFragmentIds] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>('2d');
 
   useEffect(() => {
     onNodeSelectionChange(Array.from(openFragmentIds));
@@ -311,7 +313,68 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }} onMouseMove={handleMouseMove}>
-      <ForceGraph3D
+      {/* 2D/3D Toggle */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '4rem',
+          right: '1.5rem',
+          zIndex: 20,
+          display: 'flex',
+          background: 'rgba(15, 15, 15, 0.9)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          backdropFilter: 'blur(8px)',
+        }}
+      >
+        <button
+          onClick={() => setViewMode('2d')}
+          style={{
+            padding: '0.5rem 1rem',
+            background: viewMode === '2d' ? 'rgba(124, 58, 237, 0.3)' : 'transparent',
+            border: 'none',
+            borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+            color: viewMode === '2d' ? '#A855F7' : '#666',
+            cursor: 'pointer',
+            fontFamily: 'monospace',
+            fontSize: '0.8rem',
+            fontWeight: viewMode === '2d' ? 700 : 400,
+            letterSpacing: '0.05em',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          2D
+        </button>
+        <button
+          onClick={() => setViewMode('3d')}
+          style={{
+            padding: '0.5rem 1rem',
+            background: viewMode === '3d' ? 'rgba(124, 58, 237, 0.3)' : 'transparent',
+            border: 'none',
+            color: viewMode === '3d' ? '#A855F7' : '#666',
+            cursor: 'pointer',
+            fontFamily: 'monospace',
+            fontSize: '0.8rem',
+            fontWeight: viewMode === '3d' ? 700 : 400,
+            letterSpacing: '0.05em',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          3D
+        </button>
+      </div>
+
+      {viewMode === '2d' ? (
+        <Graph2D
+          graphData={graphData}
+          fragments={fragments}
+          onBackToCanvas={onBackToCanvas}
+          onNodeSelectionChange={onNodeSelectionChange}
+        />
+      ) : (
+        <>
+          <ForceGraph3D
         ref={fgRef}
         graphData={{ nodes: nodes as any, links: links as any }}
         nodeThreeObject={nodeThreeObject}
@@ -437,6 +500,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
             maxHeight: 'calc(100vh - 10rem)',
             overflowY: 'auto',
             width: '320px',
+            marginTop: '3rem',
           }}
         >
           {fragments
@@ -515,6 +579,8 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
               );
             })}
         </div>
+      )}
+        </>
       )}
     </div>
   );
