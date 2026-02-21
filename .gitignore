@@ -1,2 +1,11 @@
+# Claude Code local state
+.claude/.ralph-loop.local.md
 
+# Dependencies
+node_modules/
 
+# Build output
+dist/
+
+# Environment variables
+.env
