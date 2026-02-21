@@ -106,9 +106,14 @@ Before identifying individual connections, read the field as a whole. What is th
 
 Use theme colors in order: #F472B6 (pink), #38BDF8 (sky), #FB923C (orange), #4ADE80 (green), #C084FC (violet), #FACC15 (yellow), #2DD4BF (teal), #F87171 (red).`;
 
-export function buildUserPrompt(fragments: { id: string; text: string }[]): string {
+export function buildUserPrompt(fragments: { id: string; text: string; hasImage?: boolean }[]): string {
   const fragmentList = fragments
-    .map((f) => `[${f.id}]: "${f.text}"`)
+    .map((f) => {
+      if (f.hasImage) {
+        return `[${f.id}]: [IMAGE] "${f.text}" — see the attached image for this fragment`;
+      }
+      return `[${f.id}]: "${f.text}"`;
+    })
     .join('\n');
 
   return `Map the semantic topology between these ${fragments.length} fragments:\n\n${fragmentList}`;

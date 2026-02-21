@@ -1,10 +1,19 @@
 import type { Fragment, GraphData, SecondaryAnalysis } from '../types';
 
 export async function analyzeFragments(fragments: Fragment[]): Promise<GraphData> {
+  // Send fragments with image data to the server
+  const payload = fragments.map((f) => ({
+    id: f.id,
+    text: f.text,
+    image: f.image
+      ? { base64: f.image.base64, mimeType: f.image.mimeType }
+      : undefined,
+  }));
+
   const response = await fetch('/api/analyze', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fragments }),
+    body: JSON.stringify({ fragments: payload }),
   });
 
   if (!response.ok) {

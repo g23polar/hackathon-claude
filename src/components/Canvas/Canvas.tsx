@@ -31,11 +31,80 @@ export default function Canvas({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [quickText, setQuickText] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
   const quickInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     quickInputRef.current?.focus();
   }, []);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith('image/')) return;
+      
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        // Extract base64 portion (remove "data:image/jpeg;base64," prefix)
+        const base64 = dataUrl.split(',')[1];
+        
+        onAddFragment({
+          id: `frag-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          text: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
+          image: {
+            base64,
+            mimeType: file.type,
+            thumbnail: dataUrl,
+          },
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+    
+    // Reset input so same file can be re-selected
+    e.target.value = '';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (!files.length) return;
+    
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith('image/')) return;
+      
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(',')[1];
+        
+        onAddFragment({
+          id: `frag-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          text: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
+          image: {
+            base64,
+            mimeType: file.type,
+            thumbnail: dataUrl,
+          },
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
 
   const handleQuickAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,6 +215,21 @@ export default function Canvas({
             + Long Fragment
           </button>
           <button
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              padding: '0.5rem 1rem',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '6px',
+              color: '#a3a3a3',
+              cursor: 'pointer',
+              fontFamily: 'monospace',
+              fontSize: '0.85rem',
+            }}
+          >
+            📷 Image
+          </button>
+          <button
             onClick={() => setIsLibraryOpen(true)}
             style={{
               padding: '0.5rem 1rem',
@@ -211,7 +295,18 @@ export default function Canvas({
         )}
       </form>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem' }}>
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: '1.5rem',
+          border: isDragging ? '2px dashed rgba(124, 58, 237, 0.5)' : '2px dashed transparent',
+          transition: 'border-color 0.2s ease',
+        }}
+      >
         <div
           style={{
             display: 'grid',
@@ -276,6 +371,15 @@ export default function Canvas({
         onClose={() => setIsLibraryOpen(false)}
         onAddFragment={onAddFragment}
         onAddMultiple={onAddMultiple}
+      />
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handleImageUpload}
+        style={{ display: 'none' }}
       />
     </div>
   );

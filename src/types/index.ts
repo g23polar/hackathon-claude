@@ -9,6 +9,11 @@ export type ConnectionType =
 export interface Fragment {
   id: string;
   text: string;
+  image?: {
+    base64: string;      // base64-encoded image data (no prefix)
+    mimeType: string;    // e.g. 'image/jpeg', 'image/png'
+    thumbnail: string;   // data URL for display: `data:${mimeType};base64,${base64}` 
+  };
 }
 
 export interface Connection {

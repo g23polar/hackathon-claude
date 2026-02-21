@@ -81,18 +81,45 @@ export default function FragmentCard({ fragment, isSelected, onToggleSelect, onD
         </button>
       )}
 
-      <p
-        style={{
-          fontFamily: "'Georgia', serif",
-          fontSize: '0.95rem',
-          lineHeight: 1.6,
-          color: isSelected ? '#e5e5e5' : '#a3a3a3',
-          margin: 0,
-          paddingRight: '1rem',
-        }}
-      >
-        {fragment.text}
-      </p>
+      {fragment.image ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <img
+            src={fragment.image.thumbnail}
+            alt={fragment.text}
+            style={{
+              width: '100%',
+              maxHeight: '160px',
+              objectFit: 'cover',
+              borderRadius: '4px',
+              opacity: isSelected ? 1 : 0.8,
+              transition: 'opacity 0.2s ease',
+            }}
+          />
+          <p
+            style={{
+              fontFamily: 'monospace',
+              fontSize: '0.7rem',
+              color: '#525252',
+              margin: 0,
+            }}
+          >
+            {fragment.text}
+          </p>
+        </div>
+      ) : (
+        <p
+          style={{
+            fontFamily: "'Georgia', serif",
+            fontSize: '0.95rem',
+            lineHeight: 1.6,
+            color: isSelected ? '#e5e5e5' : '#a3a3a3',
+            margin: 0,
+            paddingRight: '1rem',
+          }}
+        >
+          {fragment.text}
+        </p>
+      )}
     </div>
   );
 }
