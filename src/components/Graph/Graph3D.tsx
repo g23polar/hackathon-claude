@@ -13,6 +13,7 @@ interface Graph3DProps {
   onBackToCanvas: () => void;
   secondaryAnalysis: SecondaryAnalysis | null;
   secondaryLoading: boolean;
+  onNodeSelectionChange: (selectedIds: string[]) => void;
 }
 
 interface GraphNode {
@@ -34,7 +35,7 @@ interface GraphLink {
   description: string;
 }
 
-export default function Graph3D({ graphData, fragments, onBackToCanvas, secondaryAnalysis, secondaryLoading }: Graph3DProps) {
+export default function Graph3D({ graphData, fragments, onBackToCanvas, secondaryAnalysis, secondaryLoading, onNodeSelectionChange }: Graph3DProps) {
   const fgRef = useRef<any>(null);
   const [hoverInfo, setHoverInfo] = useState<{
     type: 'node' | 'link';
@@ -44,6 +45,11 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, secondar
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [openFragmentIds, setOpenFragmentIds] = useState<Set<string>>(new Set());
+
+  // Notify parent when selected nodes change → triggers secondary analysis
+  useEffect(() => {
+    onNodeSelectionChange(Array.from(openFragmentIds));
+  }, [openFragmentIds, onNodeSelectionChange]);
 
   // Add ambient lighting and initial camera animation
   useEffect(() => {
@@ -276,17 +282,16 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, secondar
       const newFocused = focusedNodeId === graphNode.id ? null : graphNode.id;
       setFocusedNodeId(newFocused);
 
-      // Toggle fragment panel (only for non-ghost nodes)
+      // Toggle fragment panel — single selection only (only for non-ghost nodes)
       if (!graphNode.isGhost) {
         setOpenFragmentIds((prev) => {
-          const next = new Set(prev);
-          if (next.has(graphNode.id)) {
-            next.delete(graphNode.id);
-          } else {
-            next.add(graphNode.id);
+          if (prev.has(graphNode.id) && prev.size === 1) {
+            return new Set();
           }
-          return next;
+          return new Set([graphNode.id]);
         });
+      } else {
+        setOpenFragmentIds(new Set());
       }
 
       // Camera zoom to node
@@ -318,6 +323,13 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, secondar
       node.fz = node.z;
     }
   }, [nodes]);
+
+  // Recenter camera to fit all nodes
+  const handleRecenter = useCallback(() => {
+    if (!fgRef.current) return;
+    fgRef.current.zoomToFit(600, 40);
+    setFocusedNodeId(null);
+  }, []);
 
   // Track mouse position for tooltip
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -373,6 +385,35 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, secondar
       />
       {hoverInfo && <Tooltip info={{ ...hoverInfo, position: mousePos }} />}
       <Legend />
+      <button
+        onClick={handleRecenter}
+        style={{
+          position: 'absolute',
+          bottom: '13.5rem',
+          left: '1.5rem',
+          background: 'rgba(15, 15, 15, 0.9)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '8px',
+          padding: '0.5rem 0.75rem',
+          backdropFilter: 'blur(8px)',
+          cursor: 'pointer',
+          fontFamily: 'monospace',
+          fontSize: '0.7rem',
+          color: '#a3a3a3',
+          letterSpacing: '0.05em',
+          transition: 'color 0.2s, border-color 0.2s',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = '#e5e5e5';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = '#a3a3a3';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        }}
+      >
+        Recenter
+      </button>
       {openFragmentIds.size > 0 && (
         <SidePanel
           secondaryAnalysis={secondaryAnalysis}

@@ -65,6 +65,17 @@ export default function SidePanel({ secondaryAnalysis, loading, fragments }: Sid
           from { opacity: 0; transform: translateX(-8px); }
           to { opacity: 1; transform: translateX(0); }
         }
+        @keyframes quillWrite {
+          0% { transform: translateX(0) rotate(0deg); }
+          25% { transform: translateX(3px) rotate(2deg); }
+          50% { transform: translateX(6px) rotate(0deg); }
+          75% { transform: translateX(3px) rotate(-2deg); }
+          100% { transform: translateX(0) rotate(0deg); }
+        }
+        @keyframes dotBlink {
+          0%, 20% { opacity: 0; }
+          40%, 100% { opacity: 1; }
+        }
       `}</style>
 
       <div
@@ -110,17 +121,42 @@ export default function SidePanel({ secondaryAnalysis, loading, fragments }: Sid
             </div>
 
             {loading && !secondaryAnalysis && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <SkeletonBlock width="100%" height="48px" />
-                <SkeletonBlock width="80%" height="12px" />
-                <SkeletonBlock width="100%" height="1px" />
-                <SkeletonBlock width="60%" height="14px" />
-                <SkeletonBlock width="100%" height="36px" />
-                <SkeletonBlock width="50%" height="14px" />
-                <SkeletonBlock width="100%" height="36px" />
-                <SkeletonBlock width="100%" height="1px" />
-                <SkeletonBlock width="70%" height="14px" />
-                <SkeletonBlock width="100%" height="36px" />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem 0.5rem' }}>
+                {/* Quill writing animation */}
+                <div style={{
+                  fontSize: '1.5rem',
+                  marginBottom: '1rem',
+                  animation: 'quillWrite 1.2s ease-in-out infinite',
+                }}>
+                  ✒
+                </div>
+                <p style={{
+                  fontFamily: "'Georgia', serif",
+                  fontSize: '0.8rem',
+                  fontStyle: 'italic',
+                  color: '#737373',
+                  textAlign: 'center',
+                  lineHeight: 1.6,
+                  margin: '0 0 1.25rem 0',
+                }}>
+                  One moment, let me have a proper look
+                  <span style={{ display: 'inline-flex', width: '1.2em' }}>
+                    <span style={{ animation: 'dotBlink 1.4s infinite', animationDelay: '0s' }}>.</span>
+                    <span style={{ animation: 'dotBlink 1.4s infinite', animationDelay: '0.2s' }}>.</span>
+                    <span style={{ animation: 'dotBlink 1.4s infinite', animationDelay: '0.4s' }}>.</span>
+                  </span>
+                </p>
+                {/* Subtle skeleton lines below */}
+                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  <SkeletonBlock width="100%" height="40px" />
+                  <SkeletonBlock width="75%" height="10px" />
+                  <SkeletonBlock width="100%" height="1px" />
+                  <SkeletonBlock width="55%" height="10px" />
+                  <SkeletonBlock width="90%" height="28px" />
+                  <SkeletonBlock width="100%" height="1px" />
+                  <SkeletonBlock width="60%" height="10px" />
+                  <SkeletonBlock width="85%" height="28px" />
+                </div>
               </div>
             )}
 

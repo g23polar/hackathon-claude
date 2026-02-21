@@ -25,8 +25,8 @@ analyzeSecondaryRoute.post('/analyze/secondary', async (req, res) => {
     const { fragments, analysis } = req.body as AnalyzeSecondaryRequest;
 
     // Validate request
-    if (!fragments || !Array.isArray(fragments) || fragments.length < 2) {
-      res.status(400).json({ error: 'At least 2 fragments are required' });
+    if (!fragments || !Array.isArray(fragments) || fragments.length < 1) {
+      res.status(400).json({ error: 'At least 1 fragment is required' });
       return;
     }
 

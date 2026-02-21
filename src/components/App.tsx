@@ -80,12 +80,29 @@ export default function App() {
       const data = await analyzeFragments(selected);
       setGraphData(data);
       setMode('graph');
+    } catch (err) {
+      console.error('Analysis failed:', err);
+      setMode('canvas');
+    }
+  }, [fragments, selectedIds]);
 
-      // Fire secondary analysis in background (non-blocking)
+  // Re-run Professor Alan whenever the graph node selection changes
+  const handleNodeSelectionChange = useCallback(
+    (selectedNodeIds: string[]) => {
+      if (selectedNodeIds.length === 0 || !graphData) {
+        setSecondaryAnalysis(null);
+        setSecondaryLoading(false);
+        return;
+      }
+
+      const selectedFragments = fragments.filter((f) => selectedNodeIds.includes(f.id));
+      if (selectedFragments.length === 0) return;
+
+      setSecondaryAnalysis(null);
       setSecondaryLoading(true);
-      analyzeSecondary(selected, {
-        connections: data.connections,
-        ghosts: data.ghosts,
+      analyzeSecondary(selectedFragments, {
+        connections: graphData.connections,
+        ghosts: graphData.ghosts,
       })
         .then((secondary) => {
           setSecondaryAnalysis(secondary);
@@ -96,11 +113,9 @@ export default function App() {
         .finally(() => {
           setSecondaryLoading(false);
         });
-    } catch (err) {
-      console.error('Analysis failed:', err);
-      setMode('canvas');
-    }
-  }, [fragments, selectedIds]);
+    },
+    [fragments, graphData]
+  );
 
   return (
     <div
@@ -146,6 +161,7 @@ export default function App() {
             onBackToCanvas={handleBackToCanvas}
             secondaryAnalysis={secondaryAnalysis}
             secondaryLoading={secondaryLoading}
+            onNodeSelectionChange={handleNodeSelectionChange}
           />
         )}
       </div>
