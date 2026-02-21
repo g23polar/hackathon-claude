@@ -10,7 +10,6 @@ import ConstellationBg from './Canvas/ConstellationBg';
 
 export default function App() {
   const [fragments, setFragments] = useState<Fragment[]>(demoFragments);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<AppMode>('canvas');
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [secondaryAnalysis, setSecondaryAnalysis] = useState<SecondaryAnalysis | null>(null);
@@ -38,40 +37,28 @@ export default function App() {
   }, [mode]);
 
   const handleAddFragment = useCallback((fragment: Fragment) => {
-    setFragments((prev) => [...prev, fragment]);
+    setFragments((prev) => {
+      const normalized = fragment.text.trim().toLowerCase();
+      if (prev.some((f) => f.text.trim().toLowerCase() === normalized)) return prev;
+      return [...prev, fragment];
+    });
   }, []);
 
   const handleAddMultiple = useCallback((newFragments: Fragment[]) => {
-    setFragments((prev) => [...prev, ...newFragments]);
+    setFragments((prev) => {
+      const existing = new Set(prev.map((f) => f.text.trim().toLowerCase()));
+      const unique = newFragments.filter((f) => {
+        const n = f.text.trim().toLowerCase();
+        if (existing.has(n)) return false;
+        existing.add(n);
+        return true;
+      });
+      return [...prev, ...unique];
+    });
   }, []);
 
   const handleDeleteFragment = useCallback((id: string) => {
     setFragments((prev) => prev.filter((f) => f.id !== id));
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-  }, []);
-
-  const handleToggleSelect = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleSelectAll = useCallback(() => {
-    setSelectedIds(new Set(fragments.map((f) => f.id)));
-  }, [fragments]);
-
-  const handleUnselectAll = useCallback(() => {
-    setSelectedIds(new Set());
   }, []);
 
   const handleBackToCanvas = useCallback(() => {
@@ -82,32 +69,27 @@ export default function App() {
   }, []);
 
   const handleAnalyze = useCallback(async () => {
-    const selected = fragments.filter((f) => selectedIds.has(f.id));
-    if (selected.length < 2) return;
+    if (fragments.length < 2) return;
 
     setMode('loading');
     setSecondaryAnalysis(null);
     setSecondaryLoading(false);
     try {
-      const data = await analyzeFragments(selected);
+      const data = await analyzeFragments(fragments);
       setGraphData(data);
       setMode('graph');
     } catch (err) {
       console.error('Analysis failed:', err);
       setMode('canvas');
     }
-  }, [fragments, selectedIds]);
+  }, [fragments]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
-      if ((e.metaKey || e.ctrlKey) && e.key === 'a' && mode === 'canvas') {
-        e.preventDefault();
-        handleSelectAll();
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && mode === 'canvas' && selectedIds.size >= 2) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && mode === 'canvas' && fragments.length >= 2) {
         e.preventDefault();
         handleAnalyze();
       }
@@ -119,7 +101,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mode, selectedIds, handleSelectAll, handleAnalyze, handleBackToCanvas]);
+  }, [mode, fragments.length, handleAnalyze, handleBackToCanvas]);
 
 
   // Re-run Professor Alan whenever the graph node selection changes
@@ -164,7 +146,7 @@ export default function App() {
         overflow: 'hidden',
       }}
     >
-      <div style={{ opacity: mode === 'graph' ? 0.5 : 1, transition: 'opacity 0.5s ease' }}>
+      <div style={{ position: 'absolute', inset: 0, opacity: mode === 'graph' ? 0.5 : 1, transition: 'opacity 0.5s ease', zIndex: 0 }}>
         <ConstellationBg />
       </div>
 
@@ -176,10 +158,6 @@ export default function App() {
         {mode === 'canvas' && (
           <Canvas
             fragments={fragments}
-            selectedIds={selectedIds}
-            onToggleSelect={handleToggleSelect}
-            onSelectAll={handleSelectAll}
-            onUnselectAll={handleUnselectAll}
             onAddFragment={handleAddFragment}
             onAddMultiple={handleAddMultiple}
             onDeleteFragment={handleDeleteFragment}
@@ -190,7 +168,7 @@ export default function App() {
         {mode === 'graph' && graphData && (
           <Graph3D
             graphData={graphData}
-            fragments={fragments.filter((f) => selectedIds.has(f.id))}
+            fragments={fragments}
             onBackToCanvas={handleBackToCanvas}
             secondaryAnalysis={secondaryAnalysis}
             secondaryLoading={secondaryLoading}

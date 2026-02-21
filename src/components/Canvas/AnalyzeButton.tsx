@@ -1,10 +1,10 @@
 interface AnalyzeButtonProps {
-  selectedCount: number;
+  fragmentCount: number;
   onAnalyze: () => void;
 }
 
-export default function AnalyzeButton({ selectedCount, onAnalyze }: AnalyzeButtonProps) {
-  const isDisabled = selectedCount < 2;
+export default function AnalyzeButton({ fragmentCount, onAnalyze }: AnalyzeButtonProps) {
+  const isDisabled = fragmentCount < 2;
 
   return (
     <button
@@ -28,8 +28,8 @@ export default function AnalyzeButton({ selectedCount, onAnalyze }: AnalyzeButto
       }}
     >
       {isDisabled
-        ? `Select ${2 - selectedCount} more fragment${2 - selectedCount !== 1 ? 's' : ''}`
-        : `Analyze ${selectedCount} fragments`}
+        ? `Add ${2 - fragmentCount} more fragment${2 - fragmentCount !== 1 ? 's' : ''}`
+        : `Analyze ${fragmentCount} fragments`}
     </button>
   );
 }

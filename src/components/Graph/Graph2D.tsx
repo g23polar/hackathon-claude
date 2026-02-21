@@ -1,15 +1,18 @@
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
-import type { GraphData, Fragment, ConnectionType } from '../../types';
+import type { GraphData, Fragment, ConnectionType, SecondaryAnalysis } from '../../types';
 import { CONNECTION_COLORS } from '../../types';
 import Tooltip from './Tooltip';
 import Legend from './Legend';
+import SidePanel from './SidePanel';
 
 interface Graph2DProps {
   graphData: GraphData;
   fragments: Fragment[];
   onBackToCanvas: () => void;
   onNodeSelectionChange: (selectedNodeIds: string[]) => void;
+  secondaryAnalysis: SecondaryAnalysis | null;
+  secondaryLoading: boolean;
 }
 
 interface GraphNode {
@@ -30,7 +33,7 @@ interface GraphLink {
   description: string;
 }
 
-export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSelectionChange }: Graph2DProps) {
+export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSelectionChange, secondaryAnalysis, secondaryLoading }: Graph2DProps) {
   const fgRef = useRef<any>(null);
   const [hoverInfo, setHoverInfo] = useState<{
     type: 'node' | 'link';
@@ -40,6 +43,8 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [openFragmentIds, setOpenFragmentIds] = useState<Set<string>>(new Set());
+  const [activeThemes, setActiveThemes] = useState<Set<string>>(new Set());
+  const [activeConnectionTypes, setActiveConnectionTypes] = useState<Set<ConnectionType>>(new Set());
 
   useEffect(() => {
     onNodeSelectionChange(Array.from(openFragmentIds));
@@ -47,10 +52,12 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
 
   useEffect(() => {
     if (!fgRef.current) return;
-    fgRef.current.d3Force('charge')?.strength(-200);
+    fgRef.current.d3Force('charge')?.strength(-300).distanceMax(250);
+    fgRef.current.d3Force('link')?.distance(160);
+    fgRef.current.d3Force('center')?.strength(0.1);
     setTimeout(() => {
-      fgRef.current?.zoomToFit(600, 60);
-    }, 1500);
+      fgRef.current?.zoomToFit(400, 80);
+    }, 800);
   }, []);
 
   const { nodes, links } = useMemo(() => {
@@ -118,9 +125,24 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
     };
   }, [graphData, fragments]);
 
+  const forceGraphData = useMemo(() => ({ nodes: nodes as any, links: links as any }), [nodes, links]);
+
+  // Build a set of fragment IDs belonging to active themes for fast lookup
+  const activeThemeFragmentIds = useMemo(() => {
+    if (activeThemes.size === 0) return null;
+    const ids = new Set<string>();
+    for (const theme of graphData.themes || []) {
+      if (activeThemes.has(theme.name)) {
+        for (const fid of theme.fragment_ids) ids.add(fid);
+      }
+    }
+    return ids;
+  }, [activeThemes, graphData.themes]);
+
   const nodeCanvasObject = useCallback(
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const graphNode = node as GraphNode;
+      const isSelected = openFragmentIds.has(graphNode.id);
       const isFocused = focusedNodeId === graphNode.id;
       const isConnectedToFocused =
         focusedNodeId &&
@@ -129,10 +151,20 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
             (l.source === focusedNodeId && l.target === graphNode.id) ||
             (l.target === focusedNodeId && l.source === graphNode.id)
         );
-      const isDimmed = focusedNodeId && !isFocused && !isConnectedToFocused;
+      const isDimmedByFocus = focusedNodeId && !isFocused && !isConnectedToFocused;
+      const isDimmedByTheme = activeThemeFragmentIds && !activeThemeFragmentIds.has(graphNode.id);
+      const isDimmed = isDimmedByFocus || isDimmedByTheme;
 
       const baseSize = 4 + graphNode.connectionCount * 1.5;
       const size = graphNode.isGhost ? baseSize * 0.7 : baseSize;
+
+      // Green selection halo
+      if (isSelected) {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, size * 2.5, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.09)';
+        ctx.fill();
+      }
 
       // Glow
       if (!isDimmed) {
@@ -145,7 +177,6 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
       // Node shape
       ctx.beginPath();
       if (graphNode.isGhost) {
-        // Diamond shape for ghosts
         ctx.moveTo(node.x, node.y - size);
         ctx.lineTo(node.x + size, node.y);
         ctx.lineTo(node.x, node.y + size);
@@ -174,7 +205,7 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
       const label = graphNode.label;
       const fontSize = Math.max(11 / globalScale, 3);
       ctx.font = graphNode.isGhost
-        ? `italic ${fontSize}px Georgia` 
+        ? `italic ${fontSize}px Georgia`
         : `${fontSize}px monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -185,7 +216,7 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
         : 'rgba(255,255,255,0.9)';
       ctx.fillText(label, node.x, node.y + size + fontSize + 2);
     },
-    [focusedNodeId, links]
+    [focusedNodeId, links, activeThemeFragmentIds, openFragmentIds]
   );
 
   const linkColor = useCallback(
@@ -198,13 +229,24 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
           return 'rgba(100,100,100,0.08)';
         }
       }
+      if (activeConnectionTypes.size > 0 && !activeConnectionTypes.has(graphLink.type)) {
+        return 'rgba(100,100,100,0.08)';
+      }
       return CONNECTION_COLORS[graphLink.type] || '#6B7280';
     },
-    [focusedNodeId]
+    [focusedNodeId, activeConnectionTypes]
   );
 
   const linkWidth = useCallback((link: any) => {
     return (link as GraphLink).strength * 3 + 0.5;
+  }, []);
+
+  const nodePointerAreaPaint = useCallback((node: any, color: string, ctx: CanvasRenderingContext2D) => {
+    const size = 4 + ((node as GraphNode).connectionCount || 0) * 1.5;
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, size + 4, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
   }, []);
 
   const handleNodeClick = useCallback(
@@ -216,16 +258,14 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
 
       if (!graphNode.isGhost) {
         setOpenFragmentIds((prev) => {
-          if (prev.has(graphNode.id) && prev.size === 1) {
-            return new Set();
+          const next = new Set(prev);
+          if (next.has(graphNode.id)) {
+            next.delete(graphNode.id);
+          } else {
+            next.add(graphNode.id);
           }
-          return new Set([graphNode.id]);
+          return next;
         });
-      }
-
-      if (newFocused && fgRef.current && node.x !== undefined) {
-        fgRef.current.centerAt(node.x, node.y, 1000);
-        fgRef.current.zoom(3, 1000);
       }
     },
     [focusedNodeId]
@@ -234,6 +274,31 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
   const handleNodeDragEnd = useCallback((node: any) => {
     node.fx = node.x;
     node.fy = node.y;
+  }, []);
+
+  const handleEngineStop = useCallback(() => {
+    for (const node of nodes as any[]) {
+      node.fx = node.x;
+      node.fy = node.y;
+    }
+  }, [nodes]);
+
+  const handleToggleConnectionType = useCallback((type: ConnectionType) => {
+    setActiveConnectionTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }, []);
+
+  const handleToggleTheme = useCallback((themeName: string) => {
+    setActiveThemes((prev) => {
+      const next = new Set(prev);
+      if (next.has(themeName)) next.delete(themeName);
+      else next.add(themeName);
+      return next;
+    });
   }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -268,76 +333,31 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
     <div style={{ width: '100%', height: '100%', position: 'relative' }} onMouseMove={handleMouseMove}>
       <ForceGraph2D
         ref={fgRef}
-        graphData={{ nodes: nodes as any, links: links as any }}
+        graphData={forceGraphData}
         nodeCanvasObject={nodeCanvasObject}
-        nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
-          const size = 4 + ((node as GraphNode).connectionCount || 0) * 1.5;
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, size + 4, 0, 2 * Math.PI);
-          ctx.fillStyle = color;
-          ctx.fill();
-        }}
+        nodePointerAreaPaint={nodePointerAreaPaint}
         linkColor={linkColor}
         linkWidth={linkWidth}
-        linkDirectionalParticles={2}
-        linkDirectionalParticleWidth={2}
         onNodeClick={handleNodeClick}
         onNodeDragEnd={handleNodeDragEnd}
+        onEngineStop={handleEngineStop}
         onNodeHover={handleNodeHover}
         onLinkHover={handleLinkHover}
-        backgroundColor="#0a0a0a"
-        cooldownTime={4000}
-        d3VelocityDecay={0.6}
+        backgroundColor="rgba(0,0,0,0)"
+        cooldownTicks={100}
+        warmupTicks={100}
       />
 
-      {/* Field reading overlay */}
-      {(graphData.field_reading || graphData.emergent_theme) && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '1.5rem',
-            left: '24rem',
-            maxWidth: '420px',
-            zIndex: 10,
-            background: 'linear-gradient(135deg, rgba(10,10,10,0.85), rgba(10,10,10,0.6))',
-            borderRadius: '10px',
-            padding: '1rem 1.25rem',
-            border: '1px solid rgba(255,255,255,0.06)',
-            backdropFilter: 'blur(12px)',
-          }}
-        >
-          {graphData.emergent_theme && (
-            <div
-              style={{
-                fontFamily: 'monospace',
-                fontSize: '0.7rem',
-                color: '#4ADE80',
-                letterSpacing: '0.2em',
-                textTransform: 'uppercase',
-                marginBottom: '0.4rem',
-              }}
-            >
-              {graphData.emergent_theme}
-            </div>
-          )}
-          {graphData.field_reading && (
-            <div
-              style={{
-                fontFamily: "'Georgia', serif",
-                fontSize: '0.9rem',
-                color: '#999',
-                lineHeight: 1.7,
-                fontStyle: 'italic',
-              }}
-            >
-              {graphData.field_reading}
-            </div>
-          )}
-        </div>
-      )}
-
       {hoverInfo && <Tooltip info={{ ...hoverInfo, position: mousePos }} />}
-      <Legend />
+      <Legend activeTypes={activeConnectionTypes} onToggleType={handleToggleConnectionType} />
+
+      {openFragmentIds.size > 0 && (
+        <SidePanel
+          secondaryAnalysis={secondaryAnalysis}
+          loading={secondaryLoading}
+          fragments={fragments}
+        />
+      )}
 
       {/* Theme legend */}
       {graphData.themes && graphData.themes.length > 0 && (
@@ -366,28 +386,48 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
             Themes
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            {graphData.themes.map((theme) => (
-              <div key={theme.name} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {graphData.themes.map((theme) => {
+              const isActive = activeThemes.has(theme.name);
+              const isDimmed = activeThemes.size > 0 && !isActive;
+
+              return (
                 <div
+                  key={theme.name}
+                  onClick={() => handleToggleTheme(theme.name)}
                   style={{
-                    width: '14px',
-                    height: '14px',
-                    borderRadius: '50%',
-                    backgroundColor: theme.color,
-                    flexShrink: 0,
-                  }}
-                />
-                <span
-                  style={{
-                    fontFamily: 'monospace',
-                    fontSize: '0.75rem',
-                    color: theme.color,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    cursor: 'pointer',
+                    padding: '2px 4px',
+                    borderRadius: '4px',
+                    background: isActive ? `${theme.color}18` : 'transparent',
+                    opacity: isDimmed ? 0.35 : 1,
+                    transition: 'opacity 0.2s, background 0.2s',
                   }}
                 >
-                  {theme.name}
-                </span>
-              </div>
-            ))}
+                  <div
+                    style={{
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '50%',
+                      backgroundColor: theme.color,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontFamily: 'monospace',
+                      fontSize: '0.75rem',
+                      color: theme.color,
+                      userSelect: 'none',
+                    }}
+                  >
+                    {theme.name}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

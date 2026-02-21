@@ -8,10 +8,6 @@ import LibraryDrawer from './LibraryDrawer';
 
 interface CanvasProps {
   fragments: Fragment[];
-  selectedIds: Set<string>;
-  onToggleSelect: (id: string) => void;
-  onSelectAll: () => void;
-  onUnselectAll: () => void;
   onAddFragment: (fragment: Fragment) => void;
   onAddMultiple: (fragments: Fragment[]) => void;
   onDeleteFragment: (id: string) => void;
@@ -20,10 +16,6 @@ interface CanvasProps {
 
 export default function Canvas({
   fragments,
-  selectedIds,
-  onToggleSelect,
-  onSelectAll,
-  onUnselectAll,
   onAddFragment,
   onAddMultiple,
   onDeleteFragment,
@@ -162,43 +154,10 @@ export default function Canvas({
               color: '#525252',
             }}
           >
-            {fragments.length} fragments · {selectedIds.size} selected
+            {fragments.length} fragments
           </span>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          {selectedIds.size < fragments.length ? (
-            <button
-              onClick={onSelectAll}
-              style={{
-                padding: '0.5rem 1rem',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '6px',
-                color: '#a3a3a3',
-                cursor: 'pointer',
-                fontFamily: 'monospace',
-                fontSize: '0.85rem',
-              }}
-            >
-              Select All
-            </button>
-          ) : (
-            <button
-              onClick={onUnselectAll}
-              style={{
-                padding: '0.5rem 1rem',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '6px',
-                color: '#a3a3a3',
-                cursor: 'pointer',
-                fontFamily: 'monospace',
-                fontSize: '0.85rem',
-              }}
-            >
-              Unselect All
-            </button>
-          )}
           <button
             onClick={() => setIsModalOpen(true)}
             style={{
@@ -244,7 +203,7 @@ export default function Canvas({
           >
             📚 Library
           </button>
-          <AnalyzeButton selectedCount={selectedIds.size} onAnalyze={onAnalyze} />
+          <AnalyzeButton fragmentCount={fragments.length} onAnalyze={onAnalyze} />
         </div>
       </div>
 
@@ -324,8 +283,6 @@ export default function Canvas({
             <FragmentCard
               key={fragment.id}
               fragment={fragment}
-              isSelected={selectedIds.has(fragment.id)}
-              onToggleSelect={onToggleSelect}
               onDelete={onDeleteFragment}
             />
           ))}
@@ -361,7 +318,6 @@ export default function Canvas({
           color: '#333',
         }}
       >
-        <span>⌘A select all</span>
         <span>⌘↵ analyze</span>
         <span>ESC back</span>
       </div>

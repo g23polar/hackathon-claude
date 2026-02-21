@@ -77,7 +77,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
     scene.fog = new THREE.FogExp2(0x0a0a0a, 0.0001);
 
     fg.d3Force('charge')?.strength(-350).distanceMax(400);
-    fg.d3Force('link')?.distance(80);
+    fg.d3Force('link')?.distance(160);
 
     fg.cameraPosition({ x: 0, y: 0, z: 500 });
     setTimeout(() => {
@@ -117,9 +117,14 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       }
     }
 
+    const truncate = (text: string, maxWords: number) => {
+      const words = text.split(' ');
+      return words.length <= maxWords ? text : words.slice(0, maxWords).join(' ') + '…';
+    };
+
     const fragmentNodes: GraphNode[] = fragments.map((f) => ({
       id: f.id,
-      label: summaryMap.get(f.id) || f.text.split(' ').slice(0, 12).join(' ') + '…',
+      label: truncate(summaryMap.get(f.id) || f.text, 8),
       isGhost: false,
       connectionCount: connectionCounts[f.id] || 0,
       themeColor: themeColorMap.get(f.id) || '#3B82F6',
@@ -172,6 +177,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
   const nodeThreeObject = useCallback(
     (node: any) => {
       const graphNode = node as GraphNode;
+      const isSelected = openFragmentIds.has(graphNode.id);
       const isFocused = focusedNodeId === graphNode.id;
       const isConnectedToFocused =
         focusedNodeId &&
@@ -212,6 +218,17 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       });
       group.add(new THREE.Mesh(glowGeom, glowMat));
 
+      // Green selection halo
+      if (isSelected) {
+        const haloGeom = new THREE.SphereGeometry(size * 2.5, 16, 16);
+        const haloMat = new THREE.MeshBasicMaterial({
+          color: '#22C55E',
+          transparent: true,
+          opacity: 0.09,
+        });
+        group.add(new THREE.Mesh(haloGeom, haloMat));
+      }
+
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d')!;
       const font = graphNode.isGhost ? 'italic 36px Georgia' : '38px monospace';
@@ -241,7 +258,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
       return group;
     },
-    [focusedNodeId, links, activeThemeFragmentIds]
+    [focusedNodeId, links, activeThemeFragmentIds, openFragmentIds]
   );
 
   const linkColor = useCallback(
@@ -416,6 +433,8 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
           fragments={fragments}
           onBackToCanvas={onBackToCanvas}
           onNodeSelectionChange={onNodeSelectionChange}
+          secondaryAnalysis={secondaryAnalysis}
+          secondaryLoading={secondaryLoading}
         />
       ) : (
         <>
