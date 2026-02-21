@@ -29,6 +29,7 @@ export default function Canvas({
   const [quickText, setQuickText] = useState('');
   const quickInputRef = useRef<HTMLInputElement>(null);
 
+  // Auto-focus the quick input on mount
   useEffect(() => {
     quickInputRef.current?.focus();
   }, []);
@@ -42,6 +43,7 @@ export default function Canvas({
       text: trimmed,
     });
     setQuickText('');
+    // Keep focus on input for rapid entry
     quickInputRef.current?.focus();
   };
 
@@ -59,6 +61,7 @@ export default function Canvas({
         backgroundSize: '40px 40px',
       }}
     >
+      {/* Header bar */}
       <div
         style={{
           display: 'flex',
@@ -105,6 +108,7 @@ export default function Canvas({
                 cursor: 'pointer',
                 fontFamily: 'monospace',
                 fontSize: '0.85rem',
+                transition: 'all 0.2s ease',
               }}
             >
               Select All
@@ -121,6 +125,7 @@ export default function Canvas({
                 cursor: 'pointer',
                 fontFamily: 'monospace',
                 fontSize: '0.85rem',
+                transition: 'all 0.2s ease',
               }}
             >
               Unselect All
@@ -137,6 +142,7 @@ export default function Canvas({
               cursor: 'pointer',
               fontFamily: 'monospace',
               fontSize: '0.85rem',
+              transition: 'all 0.2s ease',
             }}
           >
             + Long Fragment
@@ -145,6 +151,7 @@ export default function Canvas({
         </div>
       </div>
 
+      {/* Quick-add input bar */}
       <form
         onSubmit={handleQuickAdd}
         style={{
@@ -169,6 +176,13 @@ export default function Canvas({
             fontFamily: "'Georgia', serif",
             fontSize: '0.95rem',
             outline: 'none',
+            transition: 'border-color 0.2s ease',
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(124, 58, 237, 0.4)';
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
           }}
         />
         {quickText.trim() && (
@@ -192,7 +206,14 @@ export default function Canvas({
         )}
       </form>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem' }}>
+      {/* Fragment grid */}
+      <div
+        style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: '1.5rem',
+        }}
+      >
         <div
           style={{
             display: 'grid',
@@ -222,7 +243,9 @@ export default function Canvas({
               fontFamily: 'monospace',
             }}
           >
-            <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>No fragments yet.</p>
+            <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>
+              No fragments yet.
+            </p>
             <p style={{ fontSize: '0.85rem', color: '#404040' }}>
               Type above and press Enter, or ask the audience for ideas.
             </p>
@@ -230,6 +253,7 @@ export default function Canvas({
         )}
       </div>
 
+      {/* Keyboard shortcut hints */}
       <div
         style={{
           padding: '0.5rem 1.5rem',

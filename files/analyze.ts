@@ -20,6 +20,7 @@ analyzeRoute.post('/analyze', async (req, res) => {
   try {
     const { fragments } = req.body as AnalyzeRequest;
 
+    // Validate request
     if (!fragments || !Array.isArray(fragments) || fragments.length < 2) {
       res.status(400).json({ error: 'At least 2 fragments are required' });
       return;
@@ -44,12 +45,14 @@ analyzeRoute.post('/analyze', async (req, res) => {
       ],
     });
 
+    // Extract text content from the response
     const textBlock = message.content.find((block) => block.type === 'text');
     if (!textBlock || textBlock.type !== 'text') {
       res.status(500).json({ error: 'No text response from Claude' });
       return;
     }
 
+    // Parse JSON from the response — Claude may wrap it in markdown code fences
     let jsonStr = textBlock.text.trim();
     const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fenceMatch) {
@@ -58,15 +61,27 @@ analyzeRoute.post('/analyze', async (req, res) => {
 
     const data = JSON.parse(jsonStr);
 
+    // Basic validation of response shape
     if (!data.connections || !Array.isArray(data.connections)) {
       res.status(500).json({ error: 'Invalid response shape: missing connections array' });
       return;
     }
-    if (!data.ghosts) data.ghosts = [];
-    if (!data.summaries) data.summaries = [];
-    if (!data.themes) data.themes = [];
-    if (!data.field_reading) data.field_reading = '';
-    if (!data.emergent_theme) data.emergent_theme = '';
+    if (!data.ghosts) {
+      data.ghosts = [];
+    }
+    if (!data.summaries) {
+      data.summaries = [];
+    }
+    if (!data.themes) {
+      data.themes = [];
+    }
+    // Pass through field_reading and emergent_theme (new fields)
+    if (!data.field_reading) {
+      data.field_reading = '';
+    }
+    if (!data.emergent_theme) {
+      data.emergent_theme = '';
+    }
 
     res.json(data);
   } catch (error: unknown) {

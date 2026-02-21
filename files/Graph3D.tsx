@@ -1,19 +1,15 @@
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import ForceGraph3D from 'react-force-graph-3d';
-import type { GraphData, Fragment, Connection, Ghost, ConnectionType, Theme, SecondaryAnalysis } from '../../types';
-import { CONNECTION_COLORS, THEME_PALETTE } from '../../types';
+import type { GraphData, Fragment, ConnectionType } from '../../types';
+import { CONNECTION_COLORS } from '../../types';
 import * as THREE from 'three';
 import Tooltip from './Tooltip';
 import Legend from './Legend';
-import SidePanel from './SidePanel';
 
 interface Graph3DProps {
   graphData: GraphData;
   fragments: Fragment[];
   onBackToCanvas: () => void;
-  onNodeSelectionChange: (selectedNodeIds: string[]) => void;
-  secondaryAnalysis: SecondaryAnalysis | null;
-  secondaryLoading: boolean;
 }
 
 interface GraphNode {
@@ -35,7 +31,7 @@ interface GraphLink {
   description: string;
 }
 
-export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSelectionChange, secondaryAnalysis, secondaryLoading }: Graph3DProps) {
+export default function Graph3D({ graphData, fragments, onBackToCanvas }: Graph3DProps) {
   const fgRef = useRef<any>(null);
   const [hoverInfo, setHoverInfo] = useState<{
     type: 'node' | 'link';
@@ -46,31 +42,34 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [openFragmentIds, setOpenFragmentIds] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    onNodeSelectionChange(Array.from(openFragmentIds));
-  }, [openFragmentIds, onNodeSelectionChange]);
-
+  // Add ambient lighting and initial camera animation
   useEffect(() => {
     if (!fgRef.current) return;
 
     const fg = fgRef.current;
     const scene = fg.scene();
 
+    // Add ambient light for softer node rendering
     const ambientLight = new THREE.AmbientLight(0x404040, 2);
     scene.add(ambientLight);
 
+    // Add a subtle point light
     const pointLight = new THREE.PointLight(0x7C3AED, 1, 500);
     pointLight.position.set(100, 100, 100);
     scene.add(pointLight);
 
+    // Second light for depth
     const pointLight2 = new THREE.PointLight(0x3B82F6, 0.5, 400);
     pointLight2.position.set(-80, -60, 80);
     scene.add(pointLight2);
 
+    // Add fog for depth perception
     scene.fog = new THREE.FogExp2(0x0a0a0a, 0.003);
 
+    // Configure force simulation
     fg.d3Force('charge')?.strength(-120);
 
+    // Initial dolly-in: start far, animate to default
     fg.cameraPosition({ x: 0, y: 0, z: 500 });
     setTimeout(() => {
       fg.cameraPosition({ x: 0, y: 0, z: 250 }, { x: 0, y: 0, z: 0 }, 2000);
@@ -84,13 +83,16 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
     };
   }, []);
 
+  // Build graph data for react-force-graph-3d
   const { nodes, links } = useMemo(() => {
+    // Count connections per node
     const connectionCounts: Record<string, number> = {};
     for (const conn of graphData.connections) {
       connectionCounts[conn.source] = (connectionCounts[conn.source] || 0) + 1;
       connectionCounts[conn.target] = (connectionCounts[conn.target] || 0) + 1;
     }
 
+    // Also count ghost connections
     for (const ghost of graphData.ghosts) {
       connectionCounts[ghost.id] = (connectionCounts[ghost.id] || 0) + ghost.connected_to.length;
       for (const fragId of ghost.connected_to) {
@@ -98,10 +100,12 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       }
     }
 
+    // Build summary lookup
     const summaryMap = new Map(
       (graphData.summaries || []).map((s) => [s.id, s.summary])
     );
 
+    // Build theme color lookup
     const themeColorMap = new Map<string, string>();
     for (const theme of graphData.themes || []) {
       for (const fid of theme.fragment_ids) {
@@ -109,6 +113,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       }
     }
 
+    // Fragment nodes
     const fragmentNodes: GraphNode[] = fragments.map((f) => ({
       id: f.id,
       label: summaryMap.get(f.id) || f.text.split(' ').slice(0, 12).join(' ') + '…',
@@ -117,6 +122,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       themeColor: themeColorMap.get(f.id) || '#3B82F6',
     }));
 
+    // Ghost nodes
     const ghostNodes: GraphNode[] = graphData.ghosts.map((g) => ({
       id: g.id,
       label: g.label,
@@ -125,6 +131,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       themeColor: '#6B7280',
     }));
 
+    // Connection links
     const connectionLinks: GraphLink[] = graphData.connections.map((conn) => ({
       source: conn.source,
       target: conn.target,
@@ -133,6 +140,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       description: conn.description,
     }));
 
+    // Ghost connection links
     const ghostLinks: GraphLink[] = graphData.ghosts.flatMap((ghost) =>
       ghost.connected_to.map((fragId) => ({
         source: ghost.id,
@@ -149,6 +157,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
     };
   }, [graphData, fragments]);
 
+  // Custom node rendering — ghost nodes are octahedrons
   const nodeThreeObject = useCallback(
     (node: any) => {
       const graphNode = node as GraphNode;
@@ -167,6 +176,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
       const group = new THREE.Group();
 
+      // Geometry: octahedron for ghosts, sphere for fragments
       const geometry = graphNode.isGhost
         ? new THREE.OctahedronGeometry(size, 0)
         : new THREE.SphereGeometry(size, 24, 24);
@@ -182,6 +192,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       const mesh = new THREE.Mesh(geometry, material);
       group.add(mesh);
 
+      // Glow sphere
       const glowGeom = new THREE.SphereGeometry(size * 2, 16, 16);
       const glowMat = new THREE.MeshBasicMaterial({
         color: graphNode.themeColor,
@@ -190,6 +201,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       });
       group.add(new THREE.Mesh(glowGeom, glowMat));
 
+      // Label sprite
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d')!;
       canvas.width = 1024;
@@ -215,6 +227,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
     [focusedNodeId, links]
   );
 
+  // Link color by type
   const linkColor = useCallback(
     (link: any) => {
       const graphLink = link as GraphLink;
@@ -230,10 +243,12 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
     [focusedNodeId]
   );
 
+  // Link width by strength
   const linkWidth = useCallback((link: any) => {
     return (link as GraphLink).strength * 3 + 0.5;
   }, []);
 
+  // Node click -> focus + toggle open fragment
   const handleNodeClick = useCallback(
     (node: any) => {
       const graphNode = node as GraphNode;
@@ -241,13 +256,15 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       const newFocused = focusedNodeId === graphNode.id ? null : graphNode.id;
       setFocusedNodeId(newFocused);
 
-      // Toggle fragment in/out of selection (only for non-ghost nodes)
       if (!graphNode.isGhost) {
         setOpenFragmentIds((prev) => {
-          if (prev.has(graphNode.id) && prev.size === 1) {
-            return new Set();
+          const next = new Set(prev);
+          if (next.has(graphNode.id)) {
+            next.delete(graphNode.id);
+          } else {
+            next.add(graphNode.id);
           }
-          return new Set([graphNode.id]);
+          return next;
         });
       }
 
@@ -277,12 +294,6 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       node.fz = node.z;
     }
   }, [nodes]);
-
-  const handleRecenter = useCallback(() => {
-    if (!fgRef.current) return;
-    fgRef.current.zoomToFit(600, 40);
-    setFocusedNodeId(null);
-  }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     setMousePos({ x: e.clientX, y: e.clientY });
@@ -334,6 +345,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
         d3VelocityDecay={0.6}
       />
 
+      {/* ═══ FIELD READING OVERLAY ═══ */}
       {(graphData.field_reading || graphData.emergent_theme) && (
         <div
           style={{
@@ -381,42 +393,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
       {hoverInfo && <Tooltip info={{ ...hoverInfo, position: mousePos }} />}
       <Legend />
-      <button
-        onClick={handleRecenter}
-        style={{
-          position: 'absolute',
-          bottom: '13.5rem',
-          left: '1.5rem',
-          background: 'rgba(15, 15, 15, 0.9)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '8px',
-          padding: '0.5rem 0.75rem',
-          backdropFilter: 'blur(8px)',
-          cursor: 'pointer',
-          fontFamily: 'monospace',
-          fontSize: '0.7rem',
-          color: '#a3a3a3',
-          letterSpacing: '0.05em',
-          transition: 'color 0.2s, border-color 0.2s',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = '#e5e5e5';
-          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = '#a3a3a3';
-          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-        }}
-      >
-        Recenter
-      </button>
-      {openFragmentIds.size > 0 && (
-        <SidePanel
-          secondaryAnalysis={secondaryAnalysis}
-          loading={secondaryLoading}
-          fragments={fragments}
-        />
-      )}
+
       {/* Theme legend */}
       {graphData.themes && graphData.themes.length > 0 && (
         <div
@@ -470,7 +447,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
         </div>
       )}
 
-
+      {/* Open fragment cards on click */}
       {openFragmentIds.size > 0 && (
         <div
           style={{

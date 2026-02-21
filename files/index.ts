@@ -47,36 +47,15 @@ export interface GraphData {
 }
 
 export const THEME_PALETTE = [
-  '#F472B6',
-  '#38BDF8',
-  '#FB923C',
-  '#4ADE80',
-  '#C084FC',
-  '#FACC15',
-  '#2DD4BF',
-  '#F87171',
+  '#F472B6', // pink
+  '#38BDF8', // sky
+  '#FB923C', // orange
+  '#4ADE80', // green
+  '#C084FC', // violet
+  '#FACC15', // yellow
+  '#2DD4BF', // teal
+  '#F87171', // red
 ];
-
-export interface ThematicCluster {
-  id: string;
-  name: string;
-  description: string;
-  fragment_ids: string[];
-  color: string;
-}
-
-export interface NarrativeThread {
-  id: string;
-  name: string;
-  description: string;
-  sequence: string[];
-}
-
-export interface SecondaryAnalysis {
-  clusters: ThematicCluster[];
-  threads: NarrativeThread[];
-  synthesis: string;
-}
 
 export type AppMode = 'canvas' | 'loading' | 'graph';
 
