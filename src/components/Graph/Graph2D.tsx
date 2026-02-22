@@ -54,8 +54,8 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
 
   useEffect(() => {
     if (!fgRef.current) return;
-    fgRef.current.d3Force('charge')?.strength(-300).distanceMax(250);
-    fgRef.current.d3Force('link')?.distance(160);
+    fgRef.current.d3Force('charge')?.strength(-450).distanceMax(400);
+    fgRef.current.d3Force('link')?.distance(180);
     fgRef.current.d3Force('center')?.strength(0.1);
     setTimeout(() => {
       fgRef.current?.zoomToFit(400, 80);
@@ -122,8 +122,18 @@ export default function Graph2D({ graphData, fragments, onBackToCanvas, onNodeSe
       }))
     );
 
+    // Seed positions in a circle so nodes don't start overlapping
+    const allNodes = [...fragmentNodes, ...ghostNodes];
+    const n = allNodes.length;
+    const radius = 60 + n * 15;
+    allNodes.forEach((node, i) => {
+      const angle = (2 * Math.PI * i) / n;
+      node.x = Math.cos(angle) * radius;
+      node.y = Math.sin(angle) * radius;
+    });
+
     return {
-      nodes: [...fragmentNodes, ...ghostNodes],
+      nodes: allNodes,
       links: [...connectionLinks, ...ghostLinks],
     };
   }, [graphData, fragments]);

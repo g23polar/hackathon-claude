@@ -78,8 +78,8 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
     scene.fog = new THREE.FogExp2(0x0a0a0a, 0.0001);
 
-    fg.d3Force('charge')?.strength(-350).distanceMax(400);
-    fg.d3Force('link')?.distance(160);
+    fg.d3Force('charge')?.strength(-500).distanceMax(600);
+    fg.d3Force('link')?.distance(200);
 
     fg.cameraPosition({ x: 0, y: 0, z: 500 });
     setTimeout(() => {
@@ -159,8 +159,22 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       }))
     );
 
+    // Seed positions in a Fibonacci sphere so nodes don't start overlapping
+    const allNodes = [...fragmentNodes, ...ghostNodes];
+    const n = allNodes.length;
+    const radius = 80 + n * 20;
+    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+    allNodes.forEach((node, i) => {
+      const y = 1 - (i / (n - 1 || 1)) * 2; // -1 to 1
+      const r = Math.sqrt(1 - y * y);
+      const theta = goldenAngle * i;
+      node.x = Math.cos(theta) * r * radius;
+      node.y = y * radius;
+      node.z = Math.sin(theta) * r * radius;
+    });
+
     return {
-      nodes: [...fragmentNodes, ...ghostNodes],
+      nodes: allNodes,
       links: [...connectionLinks, ...ghostLinks],
     };
   }, [graphData, fragments]);
