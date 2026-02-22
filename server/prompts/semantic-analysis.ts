@@ -55,8 +55,9 @@ Before identifying individual connections, read the field as a whole. What is th
 ## Constraints
 
 - Return ONLY the JSON below — no preamble, no commentary, no markdown fences, no explanation outside the schema
-- Every fragment must appear in at least 2 connections
-- Maximum connections: 3 times the number of input fragments
+- You MUST provide exactly one connection for EVERY unique pair of fragments. With N fragments, that is N*(N-1)/2 connections. No pair may be skipped
+- Every pair has a relationship — even distant ones. Use low strength (0.1–0.3) for weak/tenuous links and high strength (0.7–0.95) for strong bonds
+- The connection types and strengths between ALL pairs define a 3D volumetric topology — tight resonance bonds pull nodes close, long bridge/tension bonds push them apart. This geometry IS the meaning
 - Maximum ghost nodes: floor(fragment_count / 2), minimum 1
 - Every connection must have a non-trivial description (more than 15 words)
 - Ghost nodes must connect to at least 2 existing fragments

@@ -78,36 +78,37 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
     scene.fog = new THREE.FogExp2(0x0a0a0a, 0.0001);
 
-    // Strong repulsion creates volume between unrelated nodes
-    fg.d3Force('charge')?.strength(-700).distanceMax(1000);
+    // Very strong charge — 3D needs much more repulsion than 2D
+    fg.d3Force('charge')?.strength(-1200).distanceMax(1500);
 
-    // Weaken center force so clusters can occupy distinct volumes
-    fg.d3Force('center')?.strength(0.03);
-
-    // Vary link distance by connection type — tight bonds vs long bridges
-    const linkDistanceByType: Record<string, number> = {
-      resonance: 80,    // tight conceptual bond
-      genealogy: 100,   // close lineage
-      metaphor: 150,    // moderate — figurative leap
-      tension: 220,     // further apart — opposing forces
-      bridge: 280,      // longest — spanning distant clusters
-      ghost: 160,       // ethereal middle-distance
-    };
+    // Thresholded link forces — scaled for 3D space (2-3x of 2D values)
     fg.d3Force('link')
       ?.distance((link: any) => {
-        const type = link.type || 'ghost';
-        const base = linkDistanceByType[type] || 150;
-        const strengthMod = 1 + (1 - (link.strength || 0.5)) * 0.6;
-        return base * strengthMod;
+        const distances: Record<string, number> = {
+          resonance: 120, genealogy: 160, metaphor: 300,
+          tension: 500, bridge: 650, ghost: 350,
+        };
+        const base = distances[link.type] || 300;
+        const s = link.strength || 0.5;
+        return base * (2.0 - s * 1.2);
       })
       .strength((link: any) => {
-        return 0.2 + (link.strength || 0.5) * 0.5;
+        const s = link.strength || 0.5;
+        // Sharp threshold: weak links = almost no force
+        if (s < 0.3) return 0.01;
+        if (s < 0.5) return 0.05;
+        return 0.1 + (s - 0.5) * 0.8;
       });
 
-    fg.cameraPosition({ x: 0, y: 0, z: 600 });
+    // CRITICAL: reheat simulation so it restarts with our forces
+    // Without this, the sim converges with default forces before useEffect runs
+    fg.d3ReheatSimulation();
+
+    fg.cameraPosition({ x: 0, y: 0, z: 800 });
+    // Auto-fit after simulation settles with correct forces
     setTimeout(() => {
-      fg.cameraPosition({ x: 0, y: 0, z: 400 }, { x: 0, y: 0, z: 0 }, 2500);
-    }, 100);
+      fg.zoomToFit(2000, 80);
+    }, 3000);
 
     return () => {
       scene.remove(ambientLight);
@@ -182,76 +183,17 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       }))
     );
 
-    // --- Topology-based orbital seeding ---
-    // Detect connected subgraphs via union-find on actual edges
+    // Seed nodes in a large 3D volume — force sim pulls connected ones together
     const allNodes = [...fragmentNodes, ...ghostNodes];
-    const allLinks = [...connectionLinks, ...ghostLinks];
-    const nodeIdSet = new Set(allNodes.map((n) => n.id));
-    const parent = new Map<string, string>();
-    const find = (x: string): string => {
-      if (!parent.has(x)) parent.set(x, x);
-      if (parent.get(x) !== x) parent.set(x, find(parent.get(x)!));
-      return parent.get(x)!;
-    };
-    const union = (a: string, b: string) => {
-      parent.set(find(a), find(b));
-    };
-    for (const id of nodeIdSet) parent.set(id, id);
-    for (const link of allLinks) {
-      if (nodeIdSet.has(link.source) && nodeIdSet.has(link.target)) {
-        union(link.source, link.target);
-      }
-    }
-
-    // Group nodes by their connected component
-    const components = new Map<string, GraphNode[]>();
-    for (const node of allNodes) {
-      const root = find(node.id);
-      if (!components.has(root)) components.set(root, []);
-      components.get(root)!.push(node);
-    }
-    const clusters = Array.from(components.values());
-
-    // Generate cluster centers with full 3D volume (random directions, not on a surface)
     const n = allNodes.length;
-    const interClusterDist = 100 + n * 18;
-    const clusterCenters: Array<{ x: number; y: number; z: number }> = [];
-    for (let i = 0; i < clusters.length; i++) {
-      // Random direction in 3D using spherical coordinates with random radius
-      const phi = Math.acos(2 * Math.random() - 1); // polar: 0 to PI
-      const theta = Math.random() * 2 * Math.PI;     // azimuthal: 0 to 2PI
-      const r = interClusterDist * (0.5 + Math.random() * 0.5);
-      clusterCenters.push({
-        x: r * Math.sin(phi) * Math.cos(theta),
-        y: r * Math.sin(phi) * Math.sin(theta),
-        z: r * Math.cos(phi),
-      });
-    }
-
-    // Within each cluster, arrange nodes in orbital shells by valence
-    clusters.forEach((cluster, ci) => {
-      const center = clusterCenters[ci];
-      // Sort by connection count descending — high valence nodes at center
-      const sorted = [...cluster].sort((a, b) => b.connectionCount - a.connectionCount);
-      const shellSpacing = 30 + cluster.length * 4;
-
-      sorted.forEach((node, i) => {
-        if (i === 0) {
-          // Most-connected node at the cluster center
-          node.x = center.x;
-          node.y = center.y;
-          node.z = center.z;
-        } else {
-          // Orbital shell: distance grows with index, position is random on sphere
-          const shell = Math.ceil(i / 3); // ~3 nodes per shell
-          const shellR = shell * shellSpacing;
-          const phi = Math.acos(2 * Math.random() - 1);
-          const theta = Math.random() * 2 * Math.PI;
-          node.x = center.x + shellR * Math.sin(phi) * Math.cos(theta);
-          node.y = center.y + shellR * Math.sin(phi) * Math.sin(theta);
-          node.z = center.z + shellR * Math.cos(phi);
-        }
-      });
+    const spread = 200 + n * 30;
+    allNodes.forEach((node) => {
+      const phi = Math.acos(2 * Math.random() - 1);
+      const theta = Math.random() * 2 * Math.PI;
+      const r = spread * Math.cbrt(Math.random());
+      node.x = r * Math.sin(phi) * Math.cos(theta);
+      node.y = r * Math.sin(phi) * Math.sin(theta);
+      node.z = r * Math.cos(phi);
     });
 
     return {
@@ -288,14 +230,14 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       const isDimmedByTheme = activeThemeFragmentIds && !activeThemeFragmentIds.has(graphNode.id);
       const isDimmed = isDimmedByFocus || isDimmedByTheme;
 
-      const baseSize = 4 + graphNode.connectionCount * 1.5;
-      const size = graphNode.isGhost ? baseSize * 0.7 : baseSize;
+      const baseSize = Math.min(3 + graphNode.connectionCount * 0.5, 8);
+      const size = graphNode.isGhost ? baseSize * 0.5 : baseSize;
 
       const group = new THREE.Group();
 
       if (graphNode.thumbnail) {
         // Image node: render as a billboard sprite that always faces the camera
-        const imgSize = size * 2.5;
+        const imgSize = size * 1.8;
         let texture = textureCache.current.get(graphNode.id);
         if (!texture) {
           const img = new Image();
@@ -330,7 +272,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
         group.add(mesh);
       }
 
-      const glowRadius = graphNode.thumbnail ? size * 3 : size * 2;
+      const glowRadius = graphNode.thumbnail ? size * 1.6 : size * 1.3;
       const glowGeom = new THREE.SphereGeometry(glowRadius, 16, 16);
       const glowMat = new THREE.MeshBasicMaterial({
         color: graphNode.themeColor,
@@ -341,7 +283,7 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
       // Green selection halo
       if (isSelected) {
-        const haloRadius = graphNode.thumbnail ? size * 3.5 : size * 2.5;
+        const haloRadius = graphNode.thumbnail ? size * 2 : size * 1.6;
         const haloGeom = new THREE.SphereGeometry(haloRadius, 16, 16);
         const haloMat = new THREE.MeshBasicMaterial({
           color: '#22C55E',
@@ -351,33 +293,37 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
         group.add(new THREE.Mesh(haloGeom, haloMat));
       }
 
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d')!;
-      const font = graphNode.isGhost ? 'italic 36px Georgia' : '38px monospace';
-      ctx.font = font;
-      const textWidth = ctx.measureText(graphNode.label).width;
-      const padding = 40;
-      canvas.width = Math.max(512, textWidth + padding * 2);
-      canvas.height = 64;
-      ctx.font = font;
-      ctx.fillStyle = isDimmed ? 'rgba(255,255,255,0.15)' : graphNode.isGhost ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.9)';
-      ctx.textAlign = 'center';
-      ctx.fillText(graphNode.label, canvas.width / 2, 44);
+      // Only show labels for focused/selected nodes to reduce clutter
+      const showLabel = isFocused || isSelected;
+      if (showLabel) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d')!;
+        const font = graphNode.isGhost ? 'italic 28px Georgia' : '28px monospace';
+        ctx.font = font;
+        const textWidth = ctx.measureText(graphNode.label).width;
+        const padding = 20;
+        canvas.width = Math.max(256, textWidth + padding * 2);
+        canvas.height = 48;
+        ctx.font = font;
+        ctx.fillStyle = graphNode.isGhost ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.95)';
+        ctx.textAlign = 'center';
+        ctx.fillText(graphNode.label, canvas.width / 2, 34);
 
-      const texture = new THREE.CanvasTexture(canvas);
-      const spriteMaterial = new THREE.SpriteMaterial({
-        map: texture,
-        transparent: true,
-        depthTest: false,
-        depthWrite: false,
-      });
-      const sprite = new THREE.Sprite(spriteMaterial);
-      sprite.renderOrder = 999;
-      const spriteWidth = (canvas.width / canvas.height) * 8;
-      sprite.scale.set(spriteWidth, 8, 1);
-      const labelY = graphNode.thumbnail ? size * 2.5 / 2 + 6 : size + 8;
-      sprite.position.set(0, labelY, 0);
-      group.add(sprite);
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMaterial = new THREE.SpriteMaterial({
+          map: texture,
+          transparent: true,
+          depthTest: false,
+          depthWrite: false,
+        });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.renderOrder = 999;
+        const spriteWidth = (canvas.width / canvas.height) * 4;
+        sprite.scale.set(spriteWidth, 4, 1);
+        const labelY = size + 3;
+        sprite.position.set(0, labelY, 0);
+        group.add(sprite);
+      }
 
       return group;
     },
@@ -397,13 +343,22 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       if (activeConnectionTypes.size > 0 && !activeConnectionTypes.has(graphLink.type)) {
         return 'rgba(100,100,100,0.08)';
       }
-      return CONNECTION_COLORS[graphLink.type] || '#6B7280';
+      const color = CONNECTION_COLORS[graphLink.type] || '#6B7280';
+      // Fade weak links
+      const s = graphLink.strength;
+      if (s < 0.3) return color + '15'; // nearly invisible
+      if (s < 0.5) return color + '40'; // faint
+      return color; // full color for strong bonds
     },
     [focusedNodeId, activeConnectionTypes]
   );
 
   const linkWidth = useCallback((link: any) => {
-    return (link as GraphLink).strength * 3 + 0.5;
+    const s = (link as GraphLink).strength;
+    // Threshold: weak links thin, strong links bold
+    if (s < 0.3) return 0.3;
+    if (s < 0.5) return 1;
+    return 1.5 + (s - 0.5) * 6;
   }, []);
 
   const handleNodeClick = useCallback(
@@ -577,10 +532,8 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
         onLinkHover={handleLinkHover}
         backgroundColor="rgba(0,0,0,0)"
         showNavInfo={false}
-        warmupTicks={60}
-        cooldownTime={8000}
-        d3VelocityDecay={0.25}
-        d3AlphaDecay={0.015}
+        cooldownTime={4000}
+        d3VelocityDecay={0.5}
       />
 
 
