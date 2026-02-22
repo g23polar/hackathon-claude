@@ -78,8 +78,40 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
     scene.fog = new THREE.FogExp2(0x0a0a0a, 0.0001);
 
-    fg.d3Force('charge')?.strength(-500).distanceMax(600);
-    fg.d3Force('link')?.distance(200);
+    // Stronger repulsion creates volume between unrelated nodes
+    fg.d3Force('charge')?.strength(-600).distanceMax(800);
+
+    // Vary link distance by connection type — tight bonds vs long bridges
+    const linkDistanceByType: Record<string, number> = {
+      resonance: 100,   // tight conceptual bond
+      genealogy: 120,   // close lineage
+      metaphor: 160,    // moderate — figurative leap
+      tension: 220,     // further apart — opposing forces
+      bridge: 250,      // longest — spanning distant clusters
+      ghost: 180,       // ethereal middle-distance
+    };
+    fg.d3Force('link')
+      ?.distance((link: any) => {
+        const type = link.type || 'ghost';
+        const base = linkDistanceByType[type] || 160;
+        // Weaker connections get more distance
+        const strengthMod = 1 + (1 - (link.strength || 0.5)) * 0.5;
+        return base * strengthMod;
+      })
+      .strength((link: any) => {
+        // Strong connections pull harder
+        return 0.3 + (link.strength || 0.5) * 0.4;
+      });
+
+    // Collision force prevents node overlap and maintains volume
+    fg.d3Force('collision', null); // clear any existing
+    try {
+      const d3 = (fg as any)._destructor ? null : fg;
+      if (d3?.d3Force) {
+        // d3-force-3d collision
+        fg.d3Force('collide')?.radius(30).strength(0.8).iterations(2);
+      }
+    } catch (_) { /* collision not available */ }
 
     fg.cameraPosition({ x: 0, y: 0, z: 500 });
     setTimeout(() => {
@@ -159,18 +191,58 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       }))
     );
 
-    // Seed positions in a Fibonacci sphere so nodes don't start overlapping
+    // Seed positions by theme clusters — each theme gets a unique 3D direction
     const allNodes = [...fragmentNodes, ...ghostNodes];
+    const themes = graphData.themes || [];
     const n = allNodes.length;
-    const radius = 80 + n * 20;
+    const clusterRadius = 60 + n * 12;
+    const jitter = 40 + n * 3;
+
+    // Generate evenly-spaced cluster centers on a sphere using golden spiral
+    const numClusters = Math.max(themes.length, 1);
     const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-    allNodes.forEach((node, i) => {
-      const y = 1 - (i / (n - 1 || 1)) * 2; // -1 to 1
+    const clusterCenters: Array<{ x: number; y: number; z: number }> = [];
+    for (let i = 0; i < numClusters; i++) {
+      const y = 1 - (i / (numClusters - 1 || 1)) * 2;
       const r = Math.sqrt(1 - y * y);
       const theta = goldenAngle * i;
-      node.x = Math.cos(theta) * r * radius;
-      node.y = y * radius;
-      node.z = Math.sin(theta) * r * radius;
+      clusterCenters.push({
+        x: Math.cos(theta) * r * clusterRadius,
+        y: y * clusterRadius,
+        z: Math.sin(theta) * r * clusterRadius,
+      });
+    }
+
+    // Map each node to its theme cluster center
+    const nodeThemeIndex = new Map<string, number>();
+    themes.forEach((theme, ti) => {
+      for (const fid of theme.fragment_ids) {
+        nodeThemeIndex.set(fid, ti);
+      }
+    });
+
+    // Also assign ghost nodes to the cluster of their most-connected theme
+    for (const ghost of graphData.ghosts) {
+      const counts: Record<number, number> = {};
+      for (const fid of ghost.connected_to) {
+        const ti = nodeThemeIndex.get(fid) ?? 0;
+        counts[ti] = (counts[ti] || 0) + 1;
+      }
+      let bestCluster = 0;
+      let bestCount = 0;
+      for (const [ti, count] of Object.entries(counts)) {
+        if (count > bestCount) { bestCount = count; bestCluster = Number(ti); }
+      }
+      nodeThemeIndex.set(ghost.id, bestCluster);
+    }
+
+    // Position each node near its cluster center with 3D jitter
+    allNodes.forEach((node) => {
+      const ci = nodeThemeIndex.get(node.id) ?? 0;
+      const center = clusterCenters[ci] || { x: 0, y: 0, z: 0 };
+      node.x = center.x + (Math.random() - 0.5) * jitter;
+      node.y = center.y + (Math.random() - 0.5) * jitter;
+      node.z = center.z + (Math.random() - 0.5) * jitter;
     });
 
     return {
@@ -496,8 +568,8 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
         onLinkHover={handleLinkHover}
         backgroundColor="rgba(0,0,0,0)"
         showNavInfo={false}
-        cooldownTime={4000}
-        d3VelocityDecay={0.6}
+        cooldownTime={6000}
+        d3VelocityDecay={0.3}
       />
 
 
