@@ -171,7 +171,7 @@ export default function App() {
             onAnalyze={handleAnalyze}
           />
         )}
-        {mode === 'loading' && <LoadingState />}
+        {mode === 'loading' && <LoadingState fragments={fragments} />}
         {mode === 'graph' && graphData && (
           <Graph3D
             graphData={graphData}

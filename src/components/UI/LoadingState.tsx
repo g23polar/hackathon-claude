@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import type { Fragment } from '../../types';
+import NetworkAnimation from './NetworkAnimation';
 
 const LOADING_MESSAGES = [
   'Mapping semantic topology...',
@@ -10,7 +12,11 @@ const LOADING_MESSAGES = [
   'Mapping the constellation...',
 ];
 
-export default function LoadingState() {
+interface Props {
+  fragments?: Fragment[];
+}
+
+export default function LoadingState({ fragments = [] }: Props) {
   const [messageIndex, setMessageIndex] = useState(0);
   const [dotCount, setDotCount] = useState(0);
 
@@ -31,42 +37,63 @@ export default function LoadingState() {
   return (
     <div
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
+        position: 'relative',
+        width: '100%',
         height: '100%',
-        gap: '2rem',
+        overflow: 'hidden',
       }}
     >
-      <div style={{ textAlign: 'center' }}>
-        <p
-          style={{
-            fontFamily: 'monospace',
-            fontSize: '1rem',
-            color: '#a3a3a3',
-            minWidth: '300px',
-          }}
-        >
-          {LOADING_MESSAGES[messageIndex]}
-        </p>
-        <p
-          style={{
-            fontFamily: 'monospace',
-            fontSize: '0.8rem',
-            color: '#525252',
-            marginTop: '0.5rem',
-          }}
-        >
-          {'.'.repeat(dotCount)}
-        </p>
-      </div>
+      {/* Network formation animation */}
+      {fragments.length >= 2 && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+          <NetworkAnimation fragments={fragments} />
+        </div>
+      )}
 
-      <style>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+      {/* Status text overlay */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          paddingBottom: '8vh',
+          pointerEvents: 'none',
+        }}
+      >
+        <div
+          style={{
+            textAlign: 'center',
+            background: 'radial-gradient(ellipse at center, rgba(10,10,10,0.85) 0%, transparent 70%)',
+            padding: '1.5rem 3rem',
+            borderRadius: '12px',
+          }}
+        >
+          <p
+            style={{
+              fontFamily: 'monospace',
+              fontSize: '1rem',
+              color: '#a3a3a3',
+              minWidth: '300px',
+            }}
+          >
+            {LOADING_MESSAGES[messageIndex]}
+          </p>
+          <p
+            style={{
+              fontFamily: 'monospace',
+              fontSize: '0.8rem',
+              color: '#525252',
+              marginTop: '0.5rem',
+            }}
+          >
+            {'.'.repeat(dotCount)}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
