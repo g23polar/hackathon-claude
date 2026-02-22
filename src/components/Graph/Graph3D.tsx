@@ -78,44 +78,35 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
 
     scene.fog = new THREE.FogExp2(0x0a0a0a, 0.0001);
 
-    // Stronger repulsion creates volume between unrelated nodes
-    fg.d3Force('charge')?.strength(-600).distanceMax(800);
+    // Strong repulsion creates volume between unrelated nodes
+    fg.d3Force('charge')?.strength(-700).distanceMax(1000);
+
+    // Weaken center force so clusters can occupy distinct volumes
+    fg.d3Force('center')?.strength(0.03);
 
     // Vary link distance by connection type — tight bonds vs long bridges
     const linkDistanceByType: Record<string, number> = {
-      resonance: 100,   // tight conceptual bond
-      genealogy: 120,   // close lineage
-      metaphor: 160,    // moderate — figurative leap
+      resonance: 80,    // tight conceptual bond
+      genealogy: 100,   // close lineage
+      metaphor: 150,    // moderate — figurative leap
       tension: 220,     // further apart — opposing forces
-      bridge: 250,      // longest — spanning distant clusters
-      ghost: 180,       // ethereal middle-distance
+      bridge: 280,      // longest — spanning distant clusters
+      ghost: 160,       // ethereal middle-distance
     };
     fg.d3Force('link')
       ?.distance((link: any) => {
         const type = link.type || 'ghost';
-        const base = linkDistanceByType[type] || 160;
-        // Weaker connections get more distance
-        const strengthMod = 1 + (1 - (link.strength || 0.5)) * 0.5;
+        const base = linkDistanceByType[type] || 150;
+        const strengthMod = 1 + (1 - (link.strength || 0.5)) * 0.6;
         return base * strengthMod;
       })
       .strength((link: any) => {
-        // Strong connections pull harder
-        return 0.3 + (link.strength || 0.5) * 0.4;
+        return 0.2 + (link.strength || 0.5) * 0.5;
       });
 
-    // Collision force prevents node overlap and maintains volume
-    fg.d3Force('collision', null); // clear any existing
-    try {
-      const d3 = (fg as any)._destructor ? null : fg;
-      if (d3?.d3Force) {
-        // d3-force-3d collision
-        fg.d3Force('collide')?.radius(30).strength(0.8).iterations(2);
-      }
-    } catch (_) { /* collision not available */ }
-
-    fg.cameraPosition({ x: 0, y: 0, z: 500 });
+    fg.cameraPosition({ x: 0, y: 0, z: 600 });
     setTimeout(() => {
-      fg.cameraPosition({ x: 0, y: 0, z: 350 }, { x: 0, y: 0, z: 0 }, 2000);
+      fg.cameraPosition({ x: 0, y: 0, z: 400 }, { x: 0, y: 0, z: 0 }, 2500);
     }, 100);
 
     return () => {
@@ -191,58 +182,76 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
       }))
     );
 
-    // Seed positions by theme clusters — each theme gets a unique 3D direction
+    // --- Topology-based orbital seeding ---
+    // Detect connected subgraphs via union-find on actual edges
     const allNodes = [...fragmentNodes, ...ghostNodes];
-    const themes = graphData.themes || [];
-    const n = allNodes.length;
-    const clusterRadius = 60 + n * 12;
-    const jitter = 40 + n * 3;
+    const allLinks = [...connectionLinks, ...ghostLinks];
+    const nodeIdSet = new Set(allNodes.map((n) => n.id));
+    const parent = new Map<string, string>();
+    const find = (x: string): string => {
+      if (!parent.has(x)) parent.set(x, x);
+      if (parent.get(x) !== x) parent.set(x, find(parent.get(x)!));
+      return parent.get(x)!;
+    };
+    const union = (a: string, b: string) => {
+      parent.set(find(a), find(b));
+    };
+    for (const id of nodeIdSet) parent.set(id, id);
+    for (const link of allLinks) {
+      if (nodeIdSet.has(link.source) && nodeIdSet.has(link.target)) {
+        union(link.source, link.target);
+      }
+    }
 
-    // Generate evenly-spaced cluster centers on a sphere using golden spiral
-    const numClusters = Math.max(themes.length, 1);
-    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+    // Group nodes by their connected component
+    const components = new Map<string, GraphNode[]>();
+    for (const node of allNodes) {
+      const root = find(node.id);
+      if (!components.has(root)) components.set(root, []);
+      components.get(root)!.push(node);
+    }
+    const clusters = Array.from(components.values());
+
+    // Generate cluster centers with full 3D volume (random directions, not on a surface)
+    const n = allNodes.length;
+    const interClusterDist = 100 + n * 18;
     const clusterCenters: Array<{ x: number; y: number; z: number }> = [];
-    for (let i = 0; i < numClusters; i++) {
-      const y = 1 - (i / (numClusters - 1 || 1)) * 2;
-      const r = Math.sqrt(1 - y * y);
-      const theta = goldenAngle * i;
+    for (let i = 0; i < clusters.length; i++) {
+      // Random direction in 3D using spherical coordinates with random radius
+      const phi = Math.acos(2 * Math.random() - 1); // polar: 0 to PI
+      const theta = Math.random() * 2 * Math.PI;     // azimuthal: 0 to 2PI
+      const r = interClusterDist * (0.5 + Math.random() * 0.5);
       clusterCenters.push({
-        x: Math.cos(theta) * r * clusterRadius,
-        y: y * clusterRadius,
-        z: Math.sin(theta) * r * clusterRadius,
+        x: r * Math.sin(phi) * Math.cos(theta),
+        y: r * Math.sin(phi) * Math.sin(theta),
+        z: r * Math.cos(phi),
       });
     }
 
-    // Map each node to its theme cluster center
-    const nodeThemeIndex = new Map<string, number>();
-    themes.forEach((theme, ti) => {
-      for (const fid of theme.fragment_ids) {
-        nodeThemeIndex.set(fid, ti);
-      }
-    });
+    // Within each cluster, arrange nodes in orbital shells by valence
+    clusters.forEach((cluster, ci) => {
+      const center = clusterCenters[ci];
+      // Sort by connection count descending — high valence nodes at center
+      const sorted = [...cluster].sort((a, b) => b.connectionCount - a.connectionCount);
+      const shellSpacing = 30 + cluster.length * 4;
 
-    // Also assign ghost nodes to the cluster of their most-connected theme
-    for (const ghost of graphData.ghosts) {
-      const counts: Record<number, number> = {};
-      for (const fid of ghost.connected_to) {
-        const ti = nodeThemeIndex.get(fid) ?? 0;
-        counts[ti] = (counts[ti] || 0) + 1;
-      }
-      let bestCluster = 0;
-      let bestCount = 0;
-      for (const [ti, count] of Object.entries(counts)) {
-        if (count > bestCount) { bestCount = count; bestCluster = Number(ti); }
-      }
-      nodeThemeIndex.set(ghost.id, bestCluster);
-    }
-
-    // Position each node near its cluster center with 3D jitter
-    allNodes.forEach((node) => {
-      const ci = nodeThemeIndex.get(node.id) ?? 0;
-      const center = clusterCenters[ci] || { x: 0, y: 0, z: 0 };
-      node.x = center.x + (Math.random() - 0.5) * jitter;
-      node.y = center.y + (Math.random() - 0.5) * jitter;
-      node.z = center.z + (Math.random() - 0.5) * jitter;
+      sorted.forEach((node, i) => {
+        if (i === 0) {
+          // Most-connected node at the cluster center
+          node.x = center.x;
+          node.y = center.y;
+          node.z = center.z;
+        } else {
+          // Orbital shell: distance grows with index, position is random on sphere
+          const shell = Math.ceil(i / 3); // ~3 nodes per shell
+          const shellR = shell * shellSpacing;
+          const phi = Math.acos(2 * Math.random() - 1);
+          const theta = Math.random() * 2 * Math.PI;
+          node.x = center.x + shellR * Math.sin(phi) * Math.cos(theta);
+          node.y = center.y + shellR * Math.sin(phi) * Math.sin(theta);
+          node.z = center.z + shellR * Math.cos(phi);
+        }
+      });
     });
 
     return {
@@ -568,8 +577,10 @@ export default function Graph3D({ graphData, fragments, onBackToCanvas, onNodeSe
         onLinkHover={handleLinkHover}
         backgroundColor="rgba(0,0,0,0)"
         showNavInfo={false}
-        cooldownTime={6000}
-        d3VelocityDecay={0.3}
+        warmupTicks={60}
+        cooldownTime={8000}
+        d3VelocityDecay={0.25}
+        d3AlphaDecay={0.015}
       />
 
 
